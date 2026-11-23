@@ -675,7 +675,7 @@ function renderResumen() {
 }
 
 // ───────────── Presupuesto generado ─────────────
-// La página de este negocio (p. ej. dualstudio.app/cotizalo/demo): sale de la dirección actual, así sigue
+// La página de este negocio (p. ej. cotizalab.app/demo): sale de la dirección actual, así sigue
 // valiendo si la app se muda a su propio dominio.
 const enlaceNegocio = () => `${location.host}${location.pathname}`.replace(/\/+$/, "");
 const docActual = () =>

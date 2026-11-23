@@ -6,7 +6,7 @@ Monorepo de las apps de **dualstudio.app**. Cada app vive en su carpeta, se leva
 /
 ├─ apps/
 │  ├─ central/        dualstudio.app            (Worker «dualstudio», solo archivos fijos)
-│  ├─ cotizalo/       dualstudio.app/cotizalo   (Worker «cotizalo» + D1)
+│  ├─ cotizalo/       cotizalab.app             (Worker «cotizalo» + D1; dualstudio.app/cotizalo redirige)
 │  └─ planifica/      dualstudio.app/planifica  (Worker «planifica» + D1)
 ├─ packages/
 │  ├─ diseno/         @dualstudio/diseno: sistema de diseño padre (tokens, base, componentes, íconos)
@@ -29,7 +29,7 @@ Monorepo de las apps de **dualstudio.app**. Cada app vive en su carpeta, se leva
 ```bash
 npm install                 # una vez: instala todo y enlaza las librerías
 npm test                    # pruebas de las librerías, las apps y las herramientas
-npm run dev:cotizalo        # http://localhost:8787/cotizalo   (ver apps/cotizalo/README.md)
+npm run dev:cotizalo        # http://localhost:8787            (ver apps/cotizalo/README.md)
 npm run dev:central         # http://localhost:8788
 npm run dev:planifica       # http://localhost:8787/planifica   (ver apps/planifica/README.md)
 npm run nueva-app -- planifica --titulo "Planifica" --descripcion "…" --icono calendar --color cat-5
@@ -58,7 +58,7 @@ Crea `apps/planifica` funcionando: Worker, ruta `dualstudio.app/planifica`, base
 
 ## Publicar en Cloudflare
 
-Cloudflare está conectado a este repositorio. Cada Worker compila **su** carpeta: lo que llega a `master` se publica en dualstudio.app, y lo que llega a `desarrollo`, en el sitio de pruebas de cada app.
+Cloudflare está conectado a este repositorio. Cada Worker compila **su** carpeta: lo que llega a `master` se publica en su dominio (dualstudio.app o, en Cotízalo, cotizalab.app), y lo que llega a `desarrollo`, en el sitio de pruebas de cada app.
 
 ### Configuración de cada Worker (Configuración → Compilación)
 
@@ -77,15 +77,15 @@ Cloudflare está conectado a este repositorio. Cada Worker compila **su** carpet
 
 ### Protecciones del panel de Cloudflare (gratis, sin código)
 
-1. **Límite de peticiones (lo más importante).** Ve a dualstudio.app → Seguridad → WAF → Reglas de limitación de velocidad y crea una regla:
+1. **Límite de peticiones (lo más importante).** En **cada dominio** (dualstudio.app y cotizalab.app: la regla vale solo para el dominio donde se crea), ve a Seguridad → WAF → Reglas de limitación de velocidad y crea una regla:
    - Expresión: `(http.request.method eq "POST" and http.request.uri.path contains "/api/")`
    - Por IP, más de 20 peticiones en 10 segundos.
    - Acción: bloquear 10 segundos.
 
-   Una sola regla cubre los inicios de sesión y las rutas públicas de **todas** las apps. Los límites en memoria del Worker no son globales; esta regla sí lo es. Los topes diarios en la base (visitas y presupuestos por negocio) son la segunda barrera.
+   Una sola regla por dominio cubre los inicios de sesión y las rutas públicas de todas las apps de ese dominio. Los límites en memoria del Worker no son globales; esta regla sí lo es. Los topes diarios en la base (visitas y presupuestos por negocio) son la segunda barrera.
 2. **Cloudflare Access para el superadministrador.** Ve a Zero Trust → Access → Aplicaciones → Self-hosted y crea una aplicación con estas rutas:
-   - `dualstudio.app/cotizalo/super`
-   - `dualstudio.app/cotizalo/api/super/*`
+   - `cotizalab.app/super`
+   - `cotizalab.app/api/super/*`
 
    Como política, permite solo tu correo (código por correo). Así, antes de llegar al panel hay un segundo factor. Ten en cuenta que entrar a un negocio como superadministrador usa la misma sesión. Si sospechas que alguien la tiene, usa «Cerrar sesión en los demás dispositivos» en «Tu cuenta».
 3. **Cloudflare Access para los sitios de pruebas.** En cada Worker, ve a Configuración → Dominios y rutas → URL de vista previa y activa Cloudflare Access. Así solo tú y tu equipo pueden entrar a los `*.workers.dev` de prueba.

@@ -1,6 +1,7 @@
 // Cotízalo en Cloudflare Workers: Hono + D1, sobre crearServidor() de @dualstudio/comun.
 //
-//  • La app vive bajo BASE_PATH (hoy /cotizalo); lo genérico (montaje, API, cabeceras, errores) lo hace comun.
+//  • La app vive bajo BASE_PATH (hoy la raíz de cotizalab.app); lo genérico (montaje, API, cabeceras, errores)
+//    lo hace comun. Las direcciones de antes (dualstudio.app/cotizalo/…) se redirigen (src/mudanza.js).
 //  • Aquí va lo propio de Cotízalo: el negocio se resuelve por el primer segmento de la ruta:
 //    <base>/<negocio>, <base>/<negocio>/admin y <base>/<negocio>/api/...;
 //    la plataforma usa <base>, <base>/super y <base>/api/super/...
@@ -15,6 +16,7 @@ import { registrarPromociones } from "./routes/promociones.js";
 import { asegurarSuperDesdeSecretos, registrarSuper, superDe } from "./routes/super.js";
 import { registrarAcceso } from "./routes/acceso.js";
 import { asegurarEsquema } from "./esquema.js";
+import { redireccionMudanza } from "./mudanza.js";
 
 const router = new Router();
 registrarPublicas(router);
@@ -94,7 +96,7 @@ function paginas(app, { asset, respHtml, paginaMensaje, noEncontrada }) {
   app.get("/:negocio/admin/", (c) => canonica(c, "/admin") || pagina(c, "/admin.html"));
 }
 
-export const { app, fetch, scheduled } = crearServidor({
+const servidor = crearServidor({
   router,
   configurar: configurarEnv,
   asegurarEsquema,
@@ -106,5 +108,10 @@ export const { app, fetch, scheduled } = crearServidor({
   /** Cron Trigger (cada hora): actualiza la tasa BCV. */
   programado: () => consultaProgramada(),
 });
+
+export const { app, scheduled } = servidor;
+/** Las direcciones de antes (dualstudio.app/cotizalo/…) se redirigen a las nuevas antes de todo lo demás. */
+export const fetch = (req, bindings, ctx) =>
+  redireccionMudanza(req, bindings) || servidor.fetch(req, bindings, ctx);
 
 export default { fetch, scheduled };

@@ -4,22 +4,18 @@ Presupuestos de exámenes para laboratorios clínicos. Es una app multinegocio, 
 
 ## Direcciones
 
-| Dirección                                 | Qué es                                                                                                                         |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `dualstudio.app/cotizalo`                 | **Inicio de sesión único**: el superadministrador va a su panel; el administrador, a su negocio (si administra varios, elige). |
-| `dualstudio.app/cotizalo/<negocio>`       | App del paciente de cada negocio.                                                                                              |
-| `dualstudio.app/cotizalo/<negocio>/admin` | Administración del negocio.                                                                                                    |
-| `dualstudio.app/cotizalo/super`           | Panel del superadministrador: crea y suspende negocios, gestiona credenciales y entra a cualquier negocio con «Abrir panel».   |
+| Dirección                       | Qué es                                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `cotizalab.app`                 | **Inicio de sesión único**: el superadministrador va a su panel; el administrador, a su negocio (si administra varios, elige). |
+| `cotizalab.app/<negocio>`       | App del paciente de cada negocio.                                                                                              |
+| `cotizalab.app/<negocio>/admin` | Administración del negocio.                                                                                                    |
+| `cotizalab.app/super`           | Panel del superadministrador: crea y suspende negocios, gestiona credenciales y entra a cualquier negocio con «Abrir panel».   |
 
 **El superadministrador puede con todo.** Con su propia sesión ve la app del paciente y el panel de administración de cualquier negocio, sin necesitar la contraseña del negocio. Eso incluye los negocios suspendidos, que nadie más ve. Dentro de un negocio aparece un aviso «Estás dentro de … como superadministrador» con un enlace para volver al panel general. Lo único que no hace ahí es cambiar la contraseña del administrador: eso se hace con «Credenciales» en el panel general.
 
-**Nada de esto está escrito en el código.** La ruta sale de `BASE_PATH` en `wrangler.jsonc` (`"/cotizalo"`) y el dominio, de `routes`. El navegador deduce la ruta de dónde se sirven sus scripts. Para mudar la app a su propio dominio (p. ej. `cotizalo.com/<negocio>`), solo cambia `wrangler.jsonc`:
+**Nada de esto está escrito en el código.** La ruta sale de `BASE_PATH` en `wrangler.jsonc` (hoy `""`: la raíz del dominio) y el dominio, de `routes`. El navegador deduce la ruta de dónde se sirven sus scripts.
 
-- `"BASE_PATH": ""` (también en `previews.vars`);
-- `"routes": [{ "pattern": "cotizalo.com", "custom_domain": true }]`;
-- `run_worker_first` sin el prefijo `/cotizalo`.
-
-Después, cambia su línea en `apps/central/apps.json`.
+**Mudanza desde `dualstudio.app/cotizalo`.** Hasta noviembre de 2026 la app vivía en `dualstudio.app/cotizalo/<negocio>`. Esas direcciones siguen llegando a este Worker (las dos últimas `routes`) y se redirigen a `cotizalab.app/<negocio>` (`src/mudanza.js`, con las variables `DIRECCION` y `DIRECCION_ANTERIOR`), para que no se rompan los enlaces que ya circulan. Para volver a montar la app dentro de otro dominio: `"BASE_PATH": "/cotizalo"` (también en `previews.vars`), `routes` con ese prefijo, `run_worker_first` con el prefijo y su línea en `apps/central/apps.json`.
 
 ## Estructura
 
@@ -45,7 +41,7 @@ cd apps/cotizalo
 npm run db:migrar:local                                       # crea las tablas
 npm run seed:demo                                             # genera seed.sql (negocios de ejemplo)
 npx wrangler d1 execute presupuesto --local --file=seed.sql
-npm run dev        # http://localhost:8787/cotizalo/demo  ·  /cotizalo/demo/admin  ·  /cotizalo/super
+npm run dev        # http://localhost:8787/demo  ·  /demo/admin  ·  /super
 ```
 
 Credenciales de ejemplo (solo en local): `admin@demo.test` / `Demo12345`, `admin@norte.test` / `Norte12345`, `super@plataforma.test` / `Super12345`.
@@ -55,7 +51,7 @@ Credenciales de ejemplo (solo en local): `admin@demo.test` / `Demo12345`, `admin
 1. Ve a Cloudflare → Workers y Pages → **cotizalo** → **Configuración** → **Variables y secretos** → **Agregar**.
 2. Agrega dos secretos (tipo _Secreto_): `SUPER_EMAIL` con tu correo y `SUPER_PASSWORD` con una contraseña nueva de 8 caracteres o más.
 3. Al guardar, Cloudflare publica la versión con esos secretos. En la próxima visita, la app crea ese superadministrador o, si el correo ya existía, le pone esa contraseña.
-4. Entra en `dualstudio.app/cotizalo` con ese correo y esa contraseña.
+4. Entra en `cotizalab.app` con ese correo y esa contraseña.
 5. **Borra los dos secretos.** Se aplican una sola vez, así que no volverán a cambiar la contraseña aunque la cambies en el panel. Aun así, no conviene dejarlos guardados. Mientras existan, «Tu cuenta» muestra un aviso.
 
 Desde el panel general (tarjeta **Tu cuenta**) el superadministrador cambia su contraseña y puede **cerrar la sesión en los demás dispositivos**. Los administradores tienen lo mismo en Configuración → Seguridad.
@@ -64,8 +60,8 @@ Desde el panel general (tarjeta **Tu cuenta**) el superadministrador cambia su c
 
 La configuración de Cloudflare común a todas las apps está en el [README del monorepo](../../README.md#publicar-en-cloudflare): directorio raíz `apps/cotizalo`, comando de compilación y rutas a vigilar. También están ahí las protecciones del panel (límite de peticiones y Cloudflare Access).
 
-- Lo que llega a `master` se publica en `dualstudio.app/cotizalo`.
-- **Sitio de pruebas.** Se trabaja en la rama `desarrollo`. Cloudflare publica cada cambio como _vista previa_ (Configuración → Compilación → _Base de vistas previas_, comando `npx wrangler preview`) en `*-cotizalo.<cuenta>.workers.dev/cotizalo`, sin tocar `dualstudio.app`.
+- Lo que llega a `master` se publica en `cotizalab.app`.
+- **Sitio de pruebas.** Se trabaja en la rama `desarrollo`. Cloudflare publica cada cambio como _vista previa_ (Configuración → Compilación → _Base de vistas previas_, comando `npx wrangler preview`) en `*-cotizalo.<cuenta>.workers.dev`, sin tocar `cotizalab.app`.
   - Usa **su propia base de datos** (`presupuesto-pruebas`, bloque `previews` de `wrangler.jsonc`) y nunca toca los datos reales. La app crea sola las tablas la primera vez.
   - Necesita en _Base de vistas previas_ → Variables y secretos tres **secretos**: `SESSION_SECRET` (texto al azar de 32 caracteres o más), `SUPER_EMAIL` y `SUPER_PASSWORD`.
   - En el panel general aparece **«Crear negocio de ejemplo»** (por `DATOS_DE_EJEMPLO = "true"` en `previews.vars`). Crea un laboratorio con catálogo, perfiles y un mes de presupuestos y visitas inventados, por pasos, para no pasar los límites de consultas por petición.
@@ -79,8 +75,8 @@ Si una compilación falla con «The name in your wrangler.jsonc file (cotizalo) 
 2. `npm run db:migrar` (tablas en producción).
 3. `SUPER_EMAIL=tu@correo SUPER_PASSWORD='una-clave-larga' npm run seed` y `npx wrangler d1 execute presupuesto --remote --file=seed.sql`. Sin `SUPER_PASSWORD` el seed se niega: no crea nunca la cuenta de ejemplo para una base real.
 4. `npx wrangler secret put SESSION_SECRET` (texto aleatorio de 32 caracteres o más). Sin él la app no arranca y lo dice.
-5. DNS (una sola vez): en Cloudflare → `dualstudio.app` → DNS, crea un registro **AAAA** con nombre `@`, contenido `100::` y **proxy activado**. Las `routes` de los Workers necesitan que el dominio pase por Cloudflare.
-6. `npm run deploy`. Crea los negocios desde `/cotizalo/super`.
+5. Dominio (una sola vez): agrega `cotizalab.app` a la cuenta de Cloudflare (Agregar un dominio, plan gratuito) y cambia sus servidores de nombres en el registrador por los que te da Cloudflare. Con `"custom_domain": true`, el registro DNS y el certificado los crea Cloudflare al publicar. Para las redirecciones desde `dualstudio.app/cotizalo`, `dualstudio.app` también tiene que pasar por Cloudflare.
+6. `npm run deploy`. Crea los negocios desde `cotizalab.app/super`.
 
 ## Límites a tener en cuenta
 
@@ -90,7 +86,7 @@ Si una compilación falla con «The name in your wrangler.jsonc file (cotizalo) 
   - los **topes diarios por negocio** (5 000 visitas y 1 000 presupuestos, en `src/routes/public.js`) viven en la base y sí lo son;
   - la regla de límite de peticiones de Cloudflare (ver el README del monorepo) es la protección real.
 - **Direcciones de los negocios.** Cada negocio está en `/<negocio>` y su API en `/<negocio>/api/...`. Por eso no se puede crear un negocio llamado `api`, `super`, `css`, `js`, `img`, `admin`… (ver `RESERVADOS` en `src/negocio.js`).
-- **Cada negocio tiene su propia sesión.** La cookie del administrador se limita a `Path=/cotizalo/<negocio>`.
+- **Cada negocio tiene su propia sesión.** La cookie del administrador se limita a `Path=/<negocio>`.
 - **CPU en el plan gratuito (10 ms).** Si el inicio de sesión se pasa del límite, pon la variable `PBKDF2_ITER` (ver `packages/comun/README.md`). El inicio de sesión único revisa como mucho 5 cuentas por correo.
 
 ## Pruebas

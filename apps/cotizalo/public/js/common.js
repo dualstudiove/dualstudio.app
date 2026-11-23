@@ -25,7 +25,7 @@ const primerSegmento = decodeURIComponent(resto.split("/")[1] || "");
 export const NEGOCIO = primerSegmento && primerSegmento !== "super"
   ? `${BASE}/${primerSegmento}`
   : "";
-/** Dirección completa para compartir: urlCompleta('/demo') → https://dualstudio.app/cotizalo/demo */
+/** Dirección completa para compartir: urlCompleta('/demo') → https://cotizalab.app/demo */
 export const urlCompleta = (ruta = "") => `${location.origin}${BASE}${ruta}`;
 
 // La API pública y la del administrador son del negocio: /api/publico/x → <base>/<negocio>/api/publico/x;

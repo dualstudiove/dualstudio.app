@@ -3,7 +3,7 @@
   "apps": [
     {
       "nombre": "Cotízalo",
-      "ruta": "/cotizalo",
+      "ruta": "https://cotizalab.app",
       "descripcion": "Presupuestos de exámenes para laboratorios clínicos.",
       "estado": "pruebas",
       "icono": "flask",
