@@ -9,7 +9,7 @@ Nació como el artefacto «Parrilla de Contenido» de claude.ai (del que tambié
 | Dirección                            | Qué es                                                                                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dualstudio.app/planifica`           | Iniciar sesión. Con un solo cliente se entra directo; con varios, se elige. También está «Tu cuenta» (nombre, contraseña, cerrar sesiones). |
-| `dualstudio.app/planifica/<cliente>` | La parrilla del cliente: Rendimiento (con Ads), Lista, Calendario, Objetivos y Pauta. Con `/preview` al final, la vista del cliente.         |
+| `dualstudio.app/planifica/<cliente>` | La parrilla del cliente: Rendimiento (con Ads), Lista, Calendario, Objetivos y Pauta. Con `/preview` al final, la vista del cliente.        |
 | `dualstudio.app/planifica/admin`     | Clientes y equipo (solo administradores).                                                                                                   |
 
 ## Papeles
@@ -32,7 +32,7 @@ Un cliente sin acceso responde como si no existiera, y ninguna consulta cruza cl
 | `src/sesion.js`                                                | Sesión y permisos sobre las cuentas compartidas (`comun/servidor/cuentas.js`).                                                             |
 | `src/esquema.js`                                               | Las tablas, que la app crea sola: `usuarios`, `clientes`, `accesos`, `publicaciones`, `objetivos`, `imagenes`.                             |
 | `src/validar.js`                                               | Qué campos y tamaños se aceptan. Publicaciones y objetivos se guardan como JSON.                                                           |
-| `src/redes/`                                                   | Métricas de Instagram: conexión con token (`sync.js`), cliente de la API (`instagram.js`), cifrado de tokens y rutas.                    |
+| `src/redes/`                                                   | Métricas de Instagram: conexión con token (`sync.js`), cliente de la API (`instagram.js`), cifrado de tokens y rutas.                      |
 | `src/almacen.js`                                               | Las imágenes, con un almacenamiento intercambiable (hoy D1).                                                                               |
 | `public/parrilla.html` + `js/parrilla.js` + `css/parrilla.css` | La parrilla, portada del artefacto casi sin cambios.                                                                                       |
 | `public/js/conexion.js`                                        | Puente entre la parrilla y la API. Ofrece la misma interfaz que claude.ai daba al artefacto: datos en vivo, usuario, imágenes y descargas. |
@@ -113,7 +113,7 @@ npm test
    | Nombre                      | `planifica`                                                             |
    | Directorio raíz             | `apps/planifica`                                                        |
    | Comando de compilación      | `cd ../.. && npm ci`                                                    |
-   | Despliegue y vistas previas | Los mismos comandos que Cotízalo                                        |
+   | Despliegue y vistas previas | `npx wrangler deploy` y `npx wrangler preview`                          |
    | Rutas a vigilar             | `apps/planifica/*`, `packages/*`, `herramientas/*`, `package-lock.json` |
 
 3. **Secretos:** en el Worker → Configuración → Variables y secretos:

@@ -129,7 +129,7 @@ test("nueva-app: valida el nombre, el ícono y el color", () => {
     () => crearApp({ nombre: "otra", color: "rojo", destino: path.join(tmp, "x") }),
     /color/,
   );
-  assert.throws(() => crearApp({ nombre: "cotizalo" }), /Ya existe/);
+  assert.throws(() => crearApp({ nombre: "planifica" }), /Ya existe/);
   const a = leerArgs(["planifica", "--titulo", "Planifica", "--sin-base"]);
   assert.equal(a.nombre, "planifica");
   assert.equal(a.titulo, "Planifica");
