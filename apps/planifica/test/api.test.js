@@ -317,7 +317,13 @@ test("objetivos y ajustes", async () => {
     400,
   );
   assert.equal(
-    (await editora("/laboratorio-rh/api/ajustes", { method: "PATCH", body: { handle: "@labrh" } }))
+    (await editora("/laboratorio-rh/api/ajustes", { method: "PATCH", body: { handle: "@otra" } }))
+      .status,
+    403,
+    "la cuenta de Instagram solo la cambia un administrador",
+  );
+  assert.equal(
+    (await admin("/laboratorio-rh/api/ajustes", { method: "PATCH", body: { handle: "@labrh" } }))
       .status,
     200,
   );

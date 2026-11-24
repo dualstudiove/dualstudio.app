@@ -352,8 +352,12 @@ export function registrarRutas(r) {
     return { ok: true };
   });
 
+  // La cuenta de Instagram del cliente solo la cambia un administrador (en la parrilla se ve, no se edita).
   r.add("PATCH", "/api/ajustes", C, async (ctx) => {
     await escritura(ctx);
+    if (!ctx.usuario.es_admin) {
+      throw new HttpError(403, "Solo un administrador puede cambiar la cuenta de Instagram del cliente.");
+    }
     const handle = str(ctx.body.handle, 60);
     await db.run("UPDATE clientes SET handle = ? WHERE id = ?", [handle || null, ctx.cliente.id]);
     await tocar(ctx.cliente.id);

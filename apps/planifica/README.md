@@ -55,7 +55,7 @@ Un cliente sin acceso responde como si no existiera, y ninguna consulta cruza cl
 
 **Inicio: Próximos y Clientes.** Al entrar, el inicio abre la pestaña **Próximos**: los posts sin publicar de todos los clientes activos que tienes asignados (el administrador ve todos), en tres grupos: **Atrasados** (fecha de hasta 30 días atrás y aún sin publicar), **Por publicar** (listos, de hoy a 7 días) y **Aún no listos** (con fecha de hoy a 7 días en idea, contenido, por producir o en producción), cada uno ordenado por fecha. Cada fila lleva al post en su parrilla. La pestaña **Clientes** tiene la lista de siempre y «Tu cuenta» (`GET /api/proximos`).
 
-**Cambiar de cliente:** en la parrilla, el nombre del cliente con las flechitas abre una lista para saltar a otro cliente sin volver al inicio (se queda en la misma pestaña: Rendimiento, Lista…); con más de 6 clientes trae un buscador. El logo sigue llevando al inicio.
+**Cambiar de cliente:** en la parrilla, el nombre del cliente con su @cuenta (un solo botón) abre una lista para saltar a otro cliente sin volver al inicio (se queda en la misma pestaña: Rendimiento, Lista…); con más de 6 clientes trae un buscador. El logo sigue llevando al inicio. La @cuenta de Instagram del cliente solo la cambia un administrador, en «Clientes y equipo».
 
 ## Métricas de Instagram
 

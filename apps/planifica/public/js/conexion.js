@@ -93,8 +93,6 @@ function pintarCabecera() {
   if (nombre) nombre.textContent = c.nombre;
   const nuevo = document.getElementById("newPost");
   if (nuevo) nuevo.hidden = estado.rol !== "editor" || PREVIEW; // solo lectura: no puede crear
-  const acct = document.getElementById("acct");
-  if (acct) acct.readOnly = estado.rol !== "editor" || PREVIEW;
   // «Ver como cliente» (para quien edita) y, dentro de esa vista, la franja para salir.
   const ver = document.getElementById("verCliente");
   if (ver) {

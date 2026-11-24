@@ -4943,10 +4943,6 @@
   });
   document.addEventListener("input", function (e) {
     var el = e.target;
-    if (el.id === "acct") {
-      queueSave("settings/account", { handle: el.value }, 600);
-      return;
-    }
     if (el.id === "fq") {
       S.f.q = el.value;
       render();
@@ -5346,9 +5342,12 @@
     }, bad);
     db.doc("settings/account").onSnapshot(function (snap) {
       S.account = snap.exists ? snap.data() : {};
-      var el = document.getElementById("acct");
-      if (el && el !== document.activeElement && el.value !== (S.account.handle || "")) {
-        el.value = S.account.handle || "";
+      // La cuenta de Instagram se ve bajo el nombre del cliente (dentro del selector); solo la cambia un
+      // administrador, en «Clientes y equipo».
+      var el = document.getElementById("acct"), hd = String(S.account.handle || "").trim().replace(/^@+/, "");
+      if (el) {
+        el.textContent = hd ? "@" + hd : "";
+        el.hidden = !hd;
       }
       if (S.view === "pauta" && !snap.metadata.hasPendingWrites) render();
     }, function () {});
