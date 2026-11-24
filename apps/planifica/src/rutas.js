@@ -10,10 +10,12 @@ import {
   db,
   frenoDeIntentos,
   hashPassword,
+  hoy,
   HttpError,
   Raw,
   secretosDeRecuperacionActivos,
   str,
+  sumarDias,
   uuid,
   validarPassword,
   verifyPassword,
@@ -85,6 +87,9 @@ const usuarioPublico = (u) => ({
   es_admin: !!u.es_admin,
 });
 
+const ATRASO_MAX = 30; // «Atrasados»: posts sin publicar con fecha de hasta 30 días atrás
+const DIAS_PROXIMOS = 7; // hoy y los 7 días siguientes
+
 export function registrarRutas(r) {
   const C = { cliente: true, auth: accesoACliente };
 
@@ -131,6 +136,43 @@ export function registrarRutas(r) {
       clientes,
       secretos_recuperacion: u.es_admin ? secretosDeRecuperacionActivos() : false,
     };
+  });
+
+  // «Próximos» del inicio: posts sin publicar de los clientes activos que tienes asignados, con fecha desde hace
+  // ATRASO_MAX días (los atrasados) hasta dentro de DIAS_PROXIMOS días.
+  r.add("GET", "/api/proximos", { auth: conSesion }, async ({ usuario }) => {
+    const dia = hoy();
+    const clientes = usuario.es_admin
+      ? "SELECT id FROM clientes WHERE activo = 1"
+      : "SELECT a.cliente_id FROM accesos a JOIN clientes c ON c.id = a.cliente_id WHERE a.usuario_id = ? AND c.activo = 1";
+    const filas = await db.all(
+      `SELECT p.id, p.datos, c.slug, c.nombre
+         FROM publicaciones p JOIN clientes c ON c.id = p.cliente_id
+        WHERE p.cliente_id IN (${clientes})
+          AND json_extract(p.datos, '$.date') BETWEEN ? AND ?
+          AND COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado'
+        ORDER BY json_extract(p.datos, '$.date'), c.nombre`,
+      [...(usuario.es_admin ? [] : [usuario.id]), sumarDias(dia, -ATRASO_MAX), sumarDias(dia, DIAS_PROXIMOS)],
+    );
+    const posts = [];
+    for (const f of filas) {
+      let d;
+      try {
+        d = JSON.parse(f.datos);
+      } catch {
+        continue;
+      }
+      posts.push({
+        id: f.id,
+        cliente: { slug: f.slug, nombre: f.nombre },
+        title: typeof d.title === "string" ? d.title.slice(0, 200) : "",
+        format: d.format || "reel",
+        platforms: Array.isArray(d.platforms) ? d.platforms : [],
+        date: d.date,
+        status: d.status || "idea",
+      });
+    }
+    return { hoy: dia, hasta: sumarDias(dia, DIAS_PROXIMOS), posts };
   });
 
   r.add("PUT", "/api/cuenta", { auth: conSesion }, async ({ usuario, body }) => {

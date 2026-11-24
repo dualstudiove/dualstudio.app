@@ -2,7 +2,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { crearD1Local } from "@dualstudio/comun/servidor/d1-local";
-import { olvidarCacheDeSecretos } from "@dualstudio/comun/servidor";
+import { hoy, olvidarCacheDeSecretos, sumarDias } from "@dualstudio/comun/servidor";
 import worker from "../src/server.js";
 
 const bindings = {
@@ -133,6 +133,28 @@ test("cada quien ve solo sus clientes", async () => {
   assert.equal((await editora("/api/admin/resumen")).status, 403);
   const s = await lectora("/api/sesion");
   assert.deepEqual(s.json.clientes.map((c) => [c.slug, c.rol]), [["laboratorio-rh", "lector"]]);
+});
+
+test("próximos: posts sin publicar de hoy a 7 días y atrasados, solo de tus clientes", async () => {
+  const d = (n) => sumarDias(hoy(), n);
+  const crear = (quien, cli, id, datos) =>
+    quien(`/${cli}/api/publicaciones`, { method: "POST", body: { id, datos: { format: "reel", platforms: ["ig"], ...datos } } });
+  await crear(editora, "laboratorio-rh", "pprox0001", { title: "Listo mañana", date: d(1), status: "listo" });
+  await crear(editora, "laboratorio-rh", "pprox0002", { title: "Idea en 3 días", date: d(3), status: "idea" });
+  await crear(editora, "laboratorio-rh", "pprox0003", { title: "Ya publicado", date: d(1), status: "publicado" });
+  await crear(editora, "laboratorio-rh", "pprox0004", { title: "Atrasado", date: d(-5), status: "produccion" });
+  await crear(editora, "laboratorio-rh", "pprox0005", { title: "Muy lejos", date: d(20), status: "idea" });
+  await crear(ajena, "cafe-avila", "pprox0006", { title: "Café hoy", date: d(0), status: "listo" });
+  const ed = await editora("/api/proximos");
+  assert.equal(ed.status, 200);
+  assert.deepEqual(ed.json.posts.map((p) => p.title), ["Atrasado", "Listo mañana", "Idea en 3 días"]);
+  assert.equal(ed.json.posts[1].cliente.slug, "laboratorio-rh");
+  assert.equal(ed.json.posts[1].status, "listo");
+  assert.deepEqual((await lectora("/api/proximos")).json.posts.length, 3, "lectura también los ve");
+  assert.deepEqual((await ajena("/api/proximos")).json.posts.map((p) => p.title), ["Café hoy"]);
+  assert.equal((await admin("/api/proximos")).json.posts.length, 4, "el administrador ve todos los clientes");
+  for (let i = 1; i <= 5; i++) await editora(`/laboratorio-rh/api/publicaciones/pprox000${i}`, { method: "DELETE" });
+  await ajena("/cafe-avila/api/publicaciones/pprox0006", { method: "DELETE" });
 });
 
 test("publicaciones: crear, cambiar, ver cambios y borrar", async () => {

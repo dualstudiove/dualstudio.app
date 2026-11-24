@@ -49,6 +49,8 @@ Un cliente sin acceso responde como si no existiera, y ninguna consulta cruza cl
   - Hoy se guardan en D1. Para pasarlas a otro sitio (por ejemplo Google Drive, una carpeta por cliente) se añade un almacén en `src/almacen.js`; el resto de la app no cambia. Para Drive hará falta conectar una cuenta de Google.
 - **Topes diarios por cliente**, guardados en la base: 5 000 cambios y 200 imágenes. Frenan un uso desbocado antes de que agote la cuota gratuita de la cuenta.
 
+**Inicio: Próximos y Clientes.** Al entrar, el inicio abre la pestaña **Próximos**: los posts sin publicar de todos los clientes activos que tienes asignados (el administrador ve todos), en tres grupos: **Atrasados** (fecha de hasta 30 días atrás y aún sin publicar), **Por publicar** (listos, de hoy a 7 días) y **Aún no listos** (con fecha de hoy a 7 días en idea, por producir o en producción), cada uno ordenado por fecha. Cada fila lleva al post en su parrilla. La pestaña **Clientes** tiene la lista de siempre y «Tu cuenta» (`GET /api/proximos`).
+
 **Cambiar de cliente:** en la parrilla, el nombre del cliente con las flechitas abre una lista para saltar a otro cliente sin volver al inicio (se queda en la misma pestaña: Rendimiento, Lista…); con más de 6 clientes trae un buscador. El logo sigue llevando al inicio.
 
 ## Métricas de Instagram

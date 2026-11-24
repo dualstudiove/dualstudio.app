@@ -90,7 +90,12 @@ function vistaClientes(s) {
       }<div>Los secretos <b>SUPER_EMAIL</b> y <b>SUPER_PASSWORD</b> siguen guardados en Cloudflare. Ya se usaron y no volverán a cambiar ninguna contraseña, pero conviene borrarlos: Workers y Pages → planifica → Configuración → Variables y secretos.</div></div>`
       : ""
   }
-    <p class="k">Clientes</p>
+    <nav class="tabs ini-tabs" aria-label="Inicio">
+      <a href="#proximos" data-tab="proximos">Próximos <span class="n" id="n-prox"></span></a>
+      <a href="#clientes" data-tab="clientes">Clientes <span class="n">${clientes.filter((c) => c.activo).length}</span></a>
+    </nav>
+    <section id="tab-proximos" class="ini-panel"><p class="muted">Cargando…</p></section>
+    <section id="tab-clientes" class="ini-panel">
     ${
     clientes.length
       ? `<div class="clientes">${tarjetas}</div>`
@@ -111,7 +116,22 @@ function vistaClientes(s) {
       <button class="btn" type="button" id="cerrar-otras">${
     icon("out")
   } Cerrar sesión en los demás dispositivos</button>
-    </div></div>`;
+    </div></section></div>`;
+
+  const pestana = () => (location.hash === "#clientes" ? "clientes" : "proximos");
+  const mostrar = () => {
+    const t = pestana();
+    for (const a of root.querySelectorAll(".ini-tabs a")) {
+      a.classList.toggle("on", a.dataset.tab === t);
+      if (a.dataset.tab === t) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    }
+    $("#tab-proximos").hidden = t !== "proximos";
+    $("#tab-clientes").hidden = t !== "clientes";
+  };
+  window.onhashchange = mostrar;
+  mostrar();
+  cargarProximos();
 
   $("#salir").addEventListener("click", async () => {
     await api("/api/logout", { method: "POST" }).catch(() => {});
@@ -140,6 +160,65 @@ function vistaClientes(s) {
       await api("/api/cuenta/sesiones/cerrar", { method: "POST" });
       toast("Listo: las demás sesiones quedaron cerradas", "ok");
     }));
+}
+
+// ── Próximos: lo que hay que publicar en los próximos días, de todos tus clientes ──
+const ESTADOS = { idea: "Idea", porproducir: "Por producir", produccion: "En producción", listo: "Por publicar" };
+const FORMATOS = { reel: "Reel", carrusel: "Carrusel", foto: "Foto", historia: "Historia", diseno: "Diseño" };
+const REDES = { ig: "IG", tt: "TT" };
+
+function fechaCorta(dia, hoy) {
+  const d = new Date(`${dia}T12:00:00`), h = new Date(`${hoy}T12:00:00`);
+  const dif = Math.round((d - h) / 86_400_000);
+  if (dif === 0) return "Hoy";
+  if (dif === 1) return "Mañana";
+  if (dif === -1) return "Ayer";
+  const t = d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function filaProximo(p, hoy) {
+  const redes = p.platforms.map((r) => REDES[r]).filter(Boolean).join(" · ");
+  return `<a class="prox" href="${esc(`${BASE}/${p.cliente.slug}#post-${p.id}`)}">
+    <span class="prox-dia">${esc(fechaCorta(p.date, hoy))}</span>
+    <span class="prox-txt"><b>${p.title ? esc(p.title) : "<em>Sin título</em>"}</b>
+      <span>${esc(p.cliente.nombre)} · ${esc(FORMATOS[p.format] || "Post")}${redes ? ` · ${esc(redes)}` : ""}</span></span>
+    <span class="prox-st st-${esc(p.status)}">${esc(ESTADOS[p.status] || "Idea")}</span></a>`;
+}
+
+function grupoProximos(clase, titulo, ayuda, lista, hoy) {
+  if (!lista.length) return "";
+  return `<div class="prox-grupo ${clase}"><h3>${titulo} <span class="n">${lista.length}</span></h3>
+    <p class="muted small">${ayuda}</p>
+    <div class="prox-lista">${lista.map((p) => filaProximo(p, hoy)).join("")}</div></div>`;
+}
+
+async function cargarProximos() {
+  const caja = $("#tab-proximos");
+  let r;
+  try {
+    r = await api("/api/proximos");
+  } catch (e) {
+    caja.innerHTML = `<div class="notice bad">${icon("warn")}<div>${esc(e.message)}</div></div>`;
+    return;
+  }
+  if (!document.body.contains(caja)) return;
+  const atrasados = r.posts.filter((p) => p.date < r.hoy);
+  const porPublicar = r.posts.filter((p) => p.date >= r.hoy && p.status === "listo");
+  const noListos = r.posts.filter((p) => p.date >= r.hoy && p.status !== "listo");
+  const n = $("#n-prox");
+  if (n) n.textContent = r.posts.length ? String(r.posts.length) : "";
+  caja.innerHTML = r.posts.length
+    ? grupoProximos("atrasados", "Atrasados", "Ya pasó su fecha y aún no se publican.", atrasados, r.hoy) +
+      grupoProximos("listos", "Por publicar", "Listos para salir hoy y en los próximos 7 días.", porPublicar, r.hoy) +
+      grupoProximos(
+        "pendientes",
+        "Aún no listos",
+        "Tienen fecha en los próximos 7 días pero todavía no están por publicar.",
+        noListos,
+        r.hoy,
+      )
+    : `<div class="empty">${icon("empty")}<p>Nada pendiente</p><span>No hay posts sin publicar con fecha en los próximos 7 días.</span></div>`;
 }
 
 async function boot() {
