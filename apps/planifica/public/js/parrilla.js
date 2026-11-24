@@ -370,8 +370,22 @@
     toast("Solo lectura: pide a un administrador acceso de editor.");
     return false;
   }
+  /** Un post en «Idea» que recibe fecha pasa solo a «Por producir» (los más avanzados no se tocan). */
+  function conFechaPorProducir(path, patch) {
+    if (path.indexOf("posts/") !== 0 || !patch.date || patch.status) return patch;
+    var p = S.posts.get(path.slice(6));
+    if (!p || (p.status || "idea") !== "idea") return patch;
+    p.status = "porproducir";
+    toast("Pasó a «Por producir» porque ya tiene fecha.");
+    setTimeout(function () {
+      if (S.view === "detalle") paintDetail();
+      else render();
+    }, 0);
+    return Object.assign({}, patch, { status: "porproducir" });
+  }
   function queueSave(path, patch, delay) {
     if (!db || !canW()) return;
+    patch = conFechaPorProducir(path, patch);
     var e = pending[path] || (pending[path] = { patch: {}, timer: null });
     Object.assign(e.patch, patch);
     clearTimeout(e.timer);
@@ -438,6 +452,7 @@
       updatedAt: ts,
       updatedBy: S.uid || null,
     }, data || {});
+    if (doc.date && doc.status === "idea") doc.status = "porproducir";
     S.posts.set(id, Object.assign({ id: id }, doc));
     return db.doc("posts/" + id).set(doc).then(function () {
       return id;
