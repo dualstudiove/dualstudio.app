@@ -2082,6 +2082,18 @@
   .dtabs button[hidden] {
     display: none;
   }
+  .dtabs-d {
+    margin: 0 0 16px;
+  }
+  .dtabs-d[hidden] {
+    display: none;
+  }
+  /* Computadora: «Contenido y producción» (dos columnas) o «Métricas y ads» */
+  #dgrid[data-tab="resultados"] .col-contenido,
+  #dgrid[data-tab="resultados"] .col-produccion,
+  #dgrid:not([data-tab="resultados"]) .col-resultados {
+    display: none;
+  }
   @media (max-width:860px) {
     .dtabs {
       display: flex;
@@ -2091,12 +2103,11 @@
       flex: 1;
       padding: 8px 12px;
     }
+    .dtabs-d {
+      display: none;
+    }
     #dgrid[data-tab="contenido"] .col-produccion,
-    #dgrid[data-tab="contenido"] .col-resultados,
-    #dgrid[data-tab="produccion"] .col-contenido,
-    #dgrid[data-tab="produccion"] .col-resultados,
-    #dgrid[data-tab="resultados"] .col-contenido,
-    #dgrid[data-tab="resultados"] .col-produccion {
+    #dgrid[data-tab="produccion"] .col-contenido {
       display: none;
     }
   }
@@ -2116,19 +2127,146 @@
     padding: 4px 11px;
     font-size: 13px;
   }
-  .dm-dt {
+  /* Selector de fecha y hora */
+  .dtf {
     display: flex;
     gap: 6px;
+    flex-wrap: wrap;
   }
-  .dm-dt .in {
-    width: auto;
+  .dtf .dtbtn {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .dtbtn svg {
+    width: 15px;
+    height: 15px;
+    color: var(--ink-3);
+    flex: none;
+  }
+  .dtbtn:hover:not(:disabled) {
+    border-color: var(--ink-3);
+  }
+  .dtbtn[aria-expanded="true"] {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent-bg);
+  }
+  .dtbtn.empty {
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+  .dtbtn:disabled {
+    cursor: default;
+  }
+  .dtpop {
+    position: fixed;
+    z-index: 70;
+    width: 268px;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow-pop);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .dt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dt-head b {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .dt-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+  }
+  .dt-grid i {
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
+    padding: 2px 0 4px;
+  }
+  .dt-grid button,
+  .dt-times button {
+    border: 0;
+    background: none;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .dt-grid button {
+    height: 32px;
+  }
+  .dt-grid button:hover,
+  .dt-times button:hover,
+  .dt-grid button:focus-visible,
+  .dt-times button:focus-visible {
+    background: var(--surface-2);
+    outline: none;
+  }
+  .dt-grid button.today,
+  .dt-times button.today {
+    box-shadow: inset 0 0 0 1px var(--line);
+    font-weight: 600;
+  }
+  .dt-grid button.on,
+  .dt-times button.on {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .dt-times {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    max-height: 232px;
+    overflow-y: auto;
+  }
+  .dt-times button {
+    padding: 7px 0;
+  }
+  .dt-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid var(--line-2, var(--line));
+    padding-top: 8px;
+  }
+  .dt-foot .grow {
+    flex: 1;
+  }
+  .dt-foot .in {
+    flex: 1;
     padding: 5px 8px;
+    font-size: 13px;
+  }
+  .dt-foot .in.bad {
+    outline: 2px solid var(--danger);
   }
   .col-resultados {
     grid-column: 1 / -1;
-  }
-  .col-resultados[hidden] {
-    display: none;
   }
   .res-grid {
     display: grid;

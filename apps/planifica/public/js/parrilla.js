@@ -3289,7 +3289,172 @@
   }
   /* Ventana para registrar o editar un impulso (un post de la parrilla impulsado en Meta). */
   /* ---------- Nuevo post: una ventana corta; se guarda solo al pulsar «Crear post» ---------- */
+  /* ---------- Selector de fecha y hora (propio; reemplaza los del navegador) ----------
+     Cada campo es un botón que muestra la fecha u hora y un input oculto con el valor (AAAA-MM-DD / HH:MM). Al elegir,
+     se escribe el input y se dispara «input», así el detalle lo guarda como cualquier otro campo. */
+  var CAL_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.25" y="3" width="11.5" height="10.75" rx="2"/><path d="M2.25 6.5h11.5M5.5 1.75v2.5M10.5 1.75v2.5"/></svg>';
+  var CLOCK_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.75V8l2.25 1.5"/></svg>';
+  function dtFields(pfx, isPost) {
+    var f = function (k) {
+      return isPost ? ' data-f="' + k + '"' : "";
+    };
+    var dis = isPost && !S.canWrite ? " disabled" : "";
+    return '<div class="dtf"><input type="hidden" id="' + pfx + '-date"' + f("date") + '><input type="hidden" id="' + pfx + '-time"' + f("time") + ">" +
+      '<button type="button" class="dtbtn" data-act="dtopen" data-kind="date" data-for="' + pfx + '-date" data-time="' + pfx + '-time" aria-haspopup="dialog"' + dis +
+      ">" + CAL_SVG + "<span></span></button>" +
+      '<button type="button" class="dtbtn" data-act="dtopen" data-kind="time" data-for="' + pfx + '-time" aria-haspopup="dialog"' + dis +
+      ">" + CLOCK_SVG + "<span></span></button></div>";
+  }
+  function fmtDateLong(d) {
+    var dt = new Date(d + "T12:00:00"), y = new Date().getFullYear();
+    var o = { weekday: "short", day: "numeric", month: "short" };
+    if (dt.getFullYear() !== y) o.year = "numeric";
+    var t = dt.toLocaleDateString("es", o).replace(/\./g, "");
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  function fmtTime(t) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(t || "");
+    if (!m) return "";
+    var h = +m[1], ap = h < 12 ? "a. m." : "p. m.";
+    return (h % 12 || 12) + ":" + m[2] + " " + ap;
+  }
+  function paintDT() {
+    document.querySelectorAll(".dtbtn").forEach(function (b) {
+      var inp = document.getElementById(b.dataset.for), v = inp ? inp.value : "";
+      var t = b.dataset.kind === "date" ? (v ? fmtDateLong(v) : "Sin fecha") : (v ? fmtTime(v) : "Sin hora");
+      var sp = b.querySelector("span");
+      if (sp.textContent !== t) sp.textContent = t;
+      b.classList.toggle("empty", !v);
+    });
+  }
+  function closeDT() {
+    var o = document.getElementById("dtPop");
+    if (o) o.remove();
+    if (S.dtPop && S.dtPop.btn) S.dtPop.btn.setAttribute("aria-expanded", "false");
+    S.dtPop = null;
+  }
+  function setDT(id, v) {
+    var inp = document.getElementById(id);
+    if (!inp) return;
+    inp.value = v;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    paintDT();
+  }
+  function openDT(btn) {
+    if (S.dtPop && S.dtPop.btn === btn) return closeDT();
+    closeDT();
+    var v = (document.getElementById(btn.dataset.for) || {}).value || "";
+    var base = v && btn.dataset.kind === "date" ? v : todayStr();
+    S.dtPop = { btn: btn, kind: btn.dataset.kind, id: btn.dataset.for, y: +base.slice(0, 4), m: +base.slice(5, 7) - 1 };
+    var pop = document.createElement("div");
+    pop.id = "dtPop";
+    pop.className = "dtpop";
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-label", btn.dataset.kind === "date" ? "Elegir fecha" : "Elegir hora");
+    document.body.appendChild(pop);
+    btn.setAttribute("aria-expanded", "true");
+    renderDT();
+    var r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    var top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8 && r.top - h - 6 > 8) top = r.top - h - 6;
+    pop.style.top = Math.round(top) + "px";
+    pop.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + "px";
+    var f = pop.querySelector(".on") || pop.querySelector(".today") || pop.querySelector("button");
+    if (f) {
+      f.focus({ preventScroll: true });
+      if (S.dtPop.kind === "time" && f.scrollIntoView) f.scrollIntoView({ block: "center" });
+    }
+  }
+  function renderDT() {
+    var st = S.dtPop, pop = document.getElementById("dtPop");
+    if (!st || !pop) return;
+    var v = (document.getElementById(st.id) || {}).value || "";
+    if (st.kind === "time") {
+      var opts = [];
+      for (var h = 0; h < 24; h++) {
+        ["00", "30"].forEach(function (mm) {
+          opts.push((h < 10 ? "0" : "") + h + ":" + mm);
+        });
+      }
+      if (v && opts.indexOf(v) < 0) opts.push(v), opts.sort();
+      var near = v || "09:00";
+      pop.innerHTML = '<div class="dt-times" role="listbox">' + opts.map(function (t) {
+        return '<button type="button" role="option" data-act="dtset" data-v="' + t + '" aria-selected="' + (t === v) + '" class="' +
+          (t === v ? "on" : t === near ? "today" : "") + '">' + fmtTime(t) + "</button>";
+      }).join("") + "</div>" +
+        '<div class="dt-foot"><label class="sr" for="dtOther">Otra hora</label><input id="dtOther" class="in" type="text" inputmode="numeric" placeholder="Otra: 18:45" autocomplete="off">' +
+        '<button type="button" class="btn sm ghost" data-act="dtset" data-v="">Quitar</button></div>';
+      return;
+    }
+    var first = new Date(st.y, st.m, 1), startDow = (first.getDay() + 6) % 7, days = new Date(st.y, st.m + 1, 0).getDate();
+    var today = todayStr(), cells = "";
+    for (var i = 0; i < startDow; i++) cells += "<span></span>";
+    for (var d = 1; d <= days; d++) {
+      var ds = st.y + "-" + (st.m < 9 ? "0" : "") + (st.m + 1) + "-" + (d < 10 ? "0" : "") + d;
+      cells += '<button type="button" data-act="dtset" data-v="' + ds + '" class="' + (ds === v ? "on " : "") + (ds === today ? "today" : "") +
+        '" aria-pressed="' + (ds === v) + '" aria-label="' + esc(fmtDateLong(ds)) + '">' + d + "</button>";
+    }
+    var mes = new Date(st.y, st.m, 1).toLocaleDateString("es", { month: "long", year: "numeric" });
+    var tomorrow = (function () {
+      var t = new Date(today + "T12:00:00");
+      t.setDate(t.getDate() + 1);
+      return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+    })();
+    pop.innerHTML = '<div class="dt-head"><button type="button" class="icon-btn" data-act="dtnav" data-v="-1" aria-label="Mes anterior">‹</button><b>' +
+      esc(mes.charAt(0).toUpperCase() + mes.slice(1)) + '</b><button type="button" class="icon-btn" data-act="dtnav" data-v="1" aria-label="Mes siguiente">›</button></div>' +
+      '<div class="dt-grid"><i>L</i><i>M</i><i>M</i><i>J</i><i>V</i><i>S</i><i>D</i>' + cells + "</div>" +
+      '<div class="dt-foot"><button type="button" class="btn sm ghost" data-act="dtset" data-v="' + today + '">Hoy</button>' +
+      '<button type="button" class="btn sm ghost" data-act="dtset" data-v="' + tomorrow + '">Mañana</button><span class="grow"></span>' +
+      (v ? '<button type="button" class="btn sm ghost" data-act="dtset" data-v="">Quitar</button>' : "") + "</div>";
+  }
+  document.addEventListener("pointerdown", function (e) {
+    if (!S.dtPop) return;
+    var pop = document.getElementById("dtPop");
+    if (pop && pop.contains(e.target)) return;
+    if (S.dtPop.btn && S.dtPop.btn.contains(e.target)) return;
+    closeDT();
+  }, true);
+  document.addEventListener("keydown", function (e) {
+    if (!S.dtPop) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      var b = S.dtPop.btn;
+      closeDT();
+      if (b) b.focus();
+    } else if (e.key === "Enter" && e.target && e.target.id === "dtOther") {
+      e.preventDefault();
+      var m = /^(\d{1,2})[:.h ]?(\d{2})?$/.exec(e.target.value.trim());
+      if (!m || +m[1] > 23 || +(m[2] || 0) > 59) {
+        e.target.classList.add("bad");
+        return;
+      }
+      var id = S.dtPop.id;
+      closeDT();
+      setDT(id, (m[1].length < 2 ? "0" : "") + m[1] + ":" + (m[2] || "00"));
+    }
+  }, true);
+  window.addEventListener("resize", function () {
+    if (S.dtPop) closeDT();
+  });
+
+  /* Pestañas del detalle: en móvil Contenido · Producción · Resultados; en computadora, «Contenido y producción»
+     (las dos columnas) y «Métricas y ads». */
+  function paintDtabs() {
+    var g = $("#dgrid");
+    if (!g) return;
+    g.dataset.tab = S.dtab;
+    document.querySelectorAll('[data-act="dtab"]').forEach(function (b) {
+      var on = b.dataset.grp === "d" ? (b.dataset.v === "resultados") === (S.dtab === "resultados") : b.dataset.v === S.dtab;
+      if (b.dataset.grp === "d") {
+        b.classList.toggle("on", on);
+        if (on) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      } else b.setAttribute("aria-pressed", String(on));
+    });
+  }
   function closeNewPost() {
+    closeDT();
     var o = document.getElementById("npOv");
     if (o) o.remove();
     S.npOpen = null;
@@ -3306,8 +3471,7 @@
       '<div class="fld"><label for="np-title">Título</label><input id="np-title" class="in" type="text" placeholder="Título o idea del post" autocomplete="off"></div>' +
       '<div class="fld"><span class="lbl" id="np-lfmt">Formato</span><div class="wrapr" role="group" aria-labelledby="np-lfmt" id="np-fmts"></div></div>' +
       '<div class="fld"><span class="lbl" id="np-lplat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="np-lplat" id="np-plats"></div></div>' +
-      '<div class="r2"><div class="fld"><label for="np-date">Fecha <span class="mut">(opcional)</span></label><input id="np-date" class="in" type="date" value="' +
-      esc(S.npOpen.date) + '"></div><div class="fld"><label for="np-time">Hora <span class="mut">(opcional)</span></label><input id="np-time" class="in" type="time"></div></div>' +
+      '<div class="fld"><span class="lbl">Publicación <span class="mut">(opcional)</span></span>' + dtFields("np", false) + "</div>" +
       '<p class="imp-err" id="npErr" hidden></p>' +
       '<div class="acts"><span class="grow"></span><button class="btn" type="button" data-act="npclose">Cancelar</button>' +
       '<button class="btn primary" type="button" data-act="npsave">Crear post</button></div></div>';
@@ -3315,6 +3479,7 @@
       if (e.target === ov) closeNewPost();
     });
     document.body.appendChild(ov);
+    document.getElementById("np-date").value = S.npOpen.date;
     paintNewPost();
     document.getElementById("np-title").focus();
   }
@@ -3329,6 +3494,7 @@
       return '<button type="button" class="tog" data-act="npplat" data-v="' + k + '" aria-pressed="' +
         (st.platforms.indexOf(k) >= 0) + '">' + PLATFORMS[k] + "</button>";
     }).join("");
+    paintDT();
   }
   function saveNewPost() {
     var st = S.npOpen;
@@ -3813,13 +3979,14 @@
       fmtBtns + "</div></div>" +
       '<div class="fld"><span class="lbl" id="lbl-plat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="lbl-plat">' +
       platBtns + "</div></div>" +
-      '<div class="fld dm-when"><span class="lbl">Publicación</span><div class="dm-dt"><label class="sr" for="f-date">Fecha de publicación</label><input id="f-date" class="in" data-f="date" type="date"' +
-      ro + '><label class="sr" for="f-time">Hora</label><input id="f-time" class="in" data-f="time" type="time"' + ro + "></div></div></div></section>" +
+      '<div class="fld dm-when"><span class="lbl">Publicación</span>' + dtFields("f", true) + "</div></div></section>" +
       '<div class="dtabs seg" role="group" aria-label="Sección del post">' +
       [["contenido", "Contenido"], ["produccion", "Producción"], ["resultados", "Resultados"]].map(function (x) {
-        return '<button type="button" data-act="dtab" data-v="' + x[0] + '" id="dtab-' + x[0] + '" aria-pressed="' +
-          (S.dtab === x[0]) + '">' + x[1] + "</button>";
+        return '<button type="button" data-act="dtab" data-v="' + x[0] + '" id="dtab-' + x[0] + '" aria-pressed="false">' + x[1] + "</button>";
       }).join("") + "</div>" +
+      '<nav class="tabs dtabs-d" id="dtabsD" aria-label="Sección del post">' +
+      '<button type="button" data-act="dtab" data-v="contenido" data-grp="d">Contenido y producción</button>' +
+      '<button type="button" data-act="dtab" data-v="resultados" data-grp="d">Métricas y ads</button></nav>' +
       '<div class="grid2" id="dgrid" data-tab="' + S.dtab + '"><div class="col col-contenido">' +
       '<section class="card"><h3>Contenido</h3>' +
       '<div class="fld">' + copyRow("f-copy", "Copy", "cnt-copy", "Copiar") +
@@ -3854,13 +4021,13 @@
       '<div class="opt-adds" id="optAdds">' + opt("refs", "Referencias") + opt("voice", "Guion de voz") + opt("location", "Locación") +
       opt("props", "Props y vestuario") + "</div>" +
       "</section></div>" +
-      // Resultados: link de Instagram, métricas e impulsos (cuando ya se publicó)
-      '<div class="col col-resultados" id="resWrap" hidden>' +
-      '<div class="res-grid"><section class="card" id="igCard" hidden><div class="card-h"><h3>Métricas de Instagram</h3><span id="igAct"></span></div>' +
+      // Métricas y ads: su propia pestaña (solo cuando ya se publicó)
+      '<div class="col col-resultados"><div class="res-grid">' +
+      '<section class="card" id="igCard" hidden><div class="card-h"><h3>Métricas de Instagram</h3><span id="igAct"></span></div>' +
       '<div class="fld" id="igLinkFld"><label for="f-igLink">Link en Instagram</label><input id="f-igLink" class="in" data-f="igLink" type="url" inputmode="url" placeholder="Pega el link del post publicado" autocomplete="off" spellcheck="false"' +
       ro + '></div><div id="igBody"></div></section>' +
-      '<section class="card" id="adsCard" hidden><div class="card-h"><h3>Impulsos</h3><span id="adsAct"></span></div><div id="adsBody"></div></section></div>' +
-      "</div></div>" +
+      '<section class="card" id="adsCard" hidden><div class="card-h"><h3>Impulsos</h3><span id="adsAct"></span></div><div id="adsBody"></div></section>' +
+      "</div></div></div>" +
       '<p class="edited" id="editedBy"></p></div>';
     if (S.focusTitle && S.canWrite) {
       S.focusTitle = false;
@@ -4124,20 +4291,16 @@
     paintRefs(p);
     $("#lbl-shot").textContent = (FORMATS[p.format] || FORMATS.reel).list;
     paintOpts(p);
+    paintDT();
     paintCounters();
     paintFooter();
     paintSave();
     // Resultados: link de Instagram, métricas e impulsos; aparece al publicarse (o si ya hay link o impulsos)
     var res = hasIg(p) && (p.status === "publicado" || !!String(p.igLink || "").trim() || impulsosDe(p.id).length > 0);
-    $("#resWrap").hidden = !res;
     $("#dtab-resultados").hidden = !res;
-    if (!res && S.dtab === "resultados") {
-      S.dtab = "contenido";
-      $("#dgrid").dataset.tab = S.dtab;
-      document.querySelectorAll('[data-act="dtab"]').forEach(function (b2) {
-        b2.setAttribute("aria-pressed", String(b2.dataset.v === S.dtab));
-      });
-    }
+    $("#dtabsD").hidden = !res;
+    if (!res && S.dtab === "resultados") S.dtab = "contenido";
+    paintDtabs();
     $("#igLinkFld").hidden = !hasIg(p);
     paintIg(p);
     paintAds(p);
@@ -4438,6 +4601,25 @@
           paintNewPost();
         }
         break;
+      case "dtopen":
+        openDT(el);
+        break;
+      case "dtnav":
+        if (S.dtPop) {
+          S.dtPop.m += +el.dataset.v;
+          if (S.dtPop.m < 0) S.dtPop.m = 11, S.dtPop.y--;
+          if (S.dtPop.m > 11) S.dtPop.m = 0, S.dtPop.y++;
+          renderDT();
+        }
+        break;
+      case "dtset":
+        if (S.dtPop) {
+          var dtid = S.dtPop.id, dtb = S.dtPop.btn;
+          closeDT();
+          setDT(dtid, el.dataset.v);
+          if (dtb) dtb.focus();
+        }
+        break;
       case "npclose":
         closeNewPost();
         break;
@@ -4585,10 +4767,7 @@
         break;
       case "dtab":
         S.dtab = el.dataset.v;
-        $("#dgrid").dataset.tab = S.dtab;
-        document.querySelectorAll('[data-act="dtab"]').forEach(function (b) {
-          b.setAttribute("aria-pressed", String(b.dataset.v === S.dtab));
-        });
+        paintDtabs();
         window.scrollTo(0, 0);
         break;
       case "group":
