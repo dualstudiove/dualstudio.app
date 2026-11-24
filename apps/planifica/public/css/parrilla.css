@@ -1783,17 +1783,6 @@
     border-radius: 8px;
     padding: 6px 10px;
   }
-  .mm-row {
-    display: flex;
-    gap: 4px 10px;
-    flex-wrap: wrap;
-    align-items: center;
-    font-size: 13px;
-  }
-  .mm-row .nm {
-    font-weight: 500;
-    overflow-wrap: anywhere;
-  }
   .hits {
     font-size: 13px;
     color: var(--ink-2);

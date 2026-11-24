@@ -308,7 +308,6 @@
     canWrite: true,
     uid: null,
     names: {},
-    focusTitle: false,
     roToast: false,
   };
   var db = null, userCap = null;
@@ -372,7 +371,7 @@
     return false;
   }
   /** Un post en «Idea» que recibe fecha pasa solo a «Contenido» (los más avanzados no se tocan). */
-  function conFechaPorProducir(path, patch) {
+  function conFechaContenido(path, patch) {
     if (path.indexOf("posts/") !== 0 || !patch.date || patch.status) return patch;
     var p = S.posts.get(path.slice(6));
     if (!p || (p.status || "idea") !== "idea") return patch;
@@ -386,7 +385,7 @@
   }
   function queueSave(path, patch, delay) {
     if (!db || !canW()) return;
-    patch = conFechaPorProducir(path, patch);
+    patch = conFechaContenido(path, patch);
     var e = pending[path] || (pending[path] = { patch: {}, timer: null });
     setTimeout(paintSave, 0);
     Object.assign(e.patch, patch);
@@ -592,9 +591,6 @@
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>';
   var EYEOFF_SVG =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/></svg>';
-  function liHtml(t) {
-    return "<li>" + esc(t) + "</li>";
-  }
   function liDone(t, g) {
     return "<li" + (((g && g.objDone) || []).indexOf(t) >= 0 ? ' class="od"' : "") + ">" + esc(t) +
       "</li>";
@@ -1488,32 +1484,6 @@
       h += "</div>";
     });
     return h + "</div></div>";
-  }
-  function monthMsBlock(y, mi) {
-    var qn = Math.floor(mi / 3),
-      qg = S.goals.get("q-" + y + "-" + (qn + 1)) || {},
-      i = mi - qn * 3,
-      rows = [];
-    ["ig", "tt"].forEach(function (pl) {
-      metricList(qg, pl).forEach(function (m0) {
-        var m = effM(m0, pl, y, qn), ms = calcMilestones(m.cur, m.tar, m.pin);
-        if (!ms) return;
-        var st = msStatus(m, i, ms, y, mi), real = m.real && m.real[i];
-        rows.push(
-          '<div class="mm-row"><span class="pl">' + PLAT_ABBR[pl] + '</span><span class="nm">' +
-            esc(m.name || "Sin nombre") + '</span><span class="mut">meta ' +
-            fmtNum(ms.end[i], ms.d) + " (" + sgnNum(ms.inc[i], ms.d) + ")" +
-            (hasNum(real) ? " · real " + fmtNum(Number(real), ms.d) : "") + "</span>" + mpill(st) +
-            "</div>",
-        );
-      });
-    });
-    return gRead(
-      "Hitos del mes",
-      rows.length
-        ? '<div class="mtr">' + rows.join("") + "</div>"
-        : '<p class="gv-empty">Se calculan desde las métricas del trimestre.</p>',
-    );
   }
   function gNotes(id, g, edit) {
     if (edit) {
@@ -4063,11 +4033,6 @@
       '<section class="card" id="adsCard" hidden><div class="card-h"><h3>Impulsos</h3><span id="adsAct"></span></div><div id="adsBody"></div></section>' +
       "</div></div></div>" +
       '<p class="edited" id="editedBy"></p></div>';
-    if (S.focusTitle && S.canWrite) {
-      S.focusTitle = false;
-      var t = $("#f-title");
-      if (t) t.focus();
-    }
   }
   function paintCounters() {
     var c = $("#f-copy"), t = $("#f-hashtags"), p = S.posts.get(S.postId);
@@ -4906,15 +4871,6 @@
         var t = document.getElementById(el.dataset.target);
         if (t && t.value) copyText(t.value, "Copiado");
         else toast("No hay nada que copiar todavía.");
-        break;
-      case "setfmt":
-        p = S.posts.get(S.postId);
-        if (!p || p.format === el.dataset.v) break;
-        var patch = { format: el.dataset.v };
-        if (isShootDefault(patch.format) && !p.shoot) patch.shoot = true;
-        Object.assign(p, patch);
-        queueSave("posts/" + p.id, patch, 0);
-        paintDetail();
         break;
       case "togplat":
         p = S.posts.get(S.postId);
