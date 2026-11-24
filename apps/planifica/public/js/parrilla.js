@@ -4296,8 +4296,8 @@
     paintCounters();
     paintFooter();
     paintSave();
-    // Resultados: link de Instagram, métricas e impulsos; aparece al publicarse (o si ya hay link o impulsos)
-    var res = hasIg(p) && (p.status === "publicado" || !!String(p.igLink || "").trim() || impulsosDe(p.id).length > 0);
+    // Métricas y ads: en todo post de Instagram (ahí se pega el link) o con impulsos; las historias no tienen métricas
+    var res = hasIg(p) || impulsosDe(p.id).length > 0;
     $("#dtab-resultados").hidden = !res;
     $("#dtabsD").hidden = !res;
     if (!res && S.dtab === "resultados") S.dtab = "contenido";
