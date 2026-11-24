@@ -2127,6 +2127,56 @@
     padding: 4px 11px;
     font-size: 13px;
   }
+  /* Cabecera del detalle: estado y formato como selectores; «⋯» con acciones */
+  .fmtsel {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .fmtsel svg:last-child {
+    width: 12px;
+    height: 12px;
+    margin-left: 4px;
+    opacity: .7;
+  }
+  .fmt-menu .tog {
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    padding: 4px 11px;
+  }
+  .more-btn {
+    padding: 6px 9px;
+  }
+  .more-btn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+  .acts-menu {
+    min-width: 150px;
+    align-items: stretch;
+  }
+  .acts-menu .mi {
+    border: 0;
+    background: none;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .acts-menu .mi:hover,
+  .acts-menu .mi:focus-visible {
+    background: var(--surface-2);
+    outline: none;
+  }
+  .acts-menu .mi.danger {
+    color: var(--danger);
+  }
+
   /* Selector de fecha y hora */
   .dtf {
     display: flex;

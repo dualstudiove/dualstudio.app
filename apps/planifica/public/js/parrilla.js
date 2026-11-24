@@ -739,19 +739,23 @@
   function openStMenu(btn) {
     var p = S.posts.get(btn.dataset.id);
     if (!p) return;
-    closeStMenu();
     var cur = STATUS[p.status] ? p.status : "idea";
-    var m = document.createElement("div");
-    m.className = "stmenu";
-    m.setAttribute("role", "menu");
-    m.innerHTML = Object.keys(STATUS).map(function (k) {
+    openMenu(btn, Object.keys(STATUS).map(function (k) {
       return '<button class="st st-' + k + '" type="button" role="menuitemradio" aria-checked="' +
         (k === cur) + '" data-act="stpick" data-id="' + esc(p.id) + '" data-v="' + k + '">' +
         stIcon(k) + "<span>" + STATUS[k] + "</span></button>";
-    }).join("");
+    }).join(""));
+  }
+  /** Menú desplegable bajo un botón (estado, formato, «⋯»): mismas teclas y cierre que el de estados. */
+  function openMenu(btn, html, cls, alignRight) {
+    closeStMenu();
+    var m = document.createElement("div");
+    m.className = "stmenu" + (cls ? " " + cls : "");
+    m.setAttribute("role", "menu");
+    m.innerHTML = html;
     document.body.appendChild(m);
     var r = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
-    var left = Math.min(Math.max(8, r.left), window.innerWidth - mw - 8);
+    var left = Math.min(Math.max(8, alignRight ? r.right - mw : r.left), window.innerWidth - mw - 8);
     var top = r.bottom + 6;
     if (top + mh > window.innerHeight - 8 && r.top - mh - 6 > 8) top = r.top - mh - 6;
     m.style.left = left + "px";
@@ -761,6 +765,41 @@
     btn.setAttribute("aria-expanded", "true");
     var sel = m.querySelector('[aria-checked="true"]') || m.firstChild;
     sel.focus();
+  }
+  var MORE_SVG = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg>';
+  function fmtSelect(p) {
+    var f = FORMATS[p.format] ? p.format : "reel";
+    if (!S.canWrite) return '<span class="tog fmtbtn fmtsel f-' + f + '" aria-pressed="true">' + fIcon(f) + FORMATS[f].label + "</span>";
+    return '<button class="tog fmtbtn fmtsel f-' + f + '" type="button" aria-pressed="true" data-act="fmtmenu" aria-haspopup="menu" aria-expanded="false" aria-label="Formato: ' +
+      esc(FORMATS[f].label) + '. Cambiar formato">' + fIcon(f) + "<span>" + FORMATS[f].label + "</span>" + CHEV_SVG + "</button>";
+  }
+  function setFormat(p, v) {
+    if (!p || !FORMATS[v] || p.format === v || !canW()) return;
+    var patch = { format: v };
+    if (isShootDefault(v) && !p.shoot) patch.shoot = true;
+    Object.assign(p, patch);
+    queueSave("posts/" + p.id, patch, 0);
+    paintDetail();
+  }
+  /** Duplicar: la copia queda en Idea, sin fecha ni link, con el contenido y la producción del original. */
+  function duplicatePost(p) {
+    if (!p || !canW()) return;
+    var skip = { id: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1, igLink: 1, refImgs: 1, date: 1, time: 1, status: 1 };
+    var data = {};
+    Object.keys(p).forEach(function (k) {
+      if (!skip[k]) data[k] = p[k];
+    });
+    data.title = (p.title || "Sin título") + " (copia)";
+    data.shots = copyShots(p).map(function (sh) {
+      return { t: sh.t, d: false };
+    });
+    data.shotDone = false;
+    flushAll();
+    createPost(data).then(function (id) {
+      if (!id) return;
+      toast("Post duplicado");
+      go("post-" + id);
+    });
   }
   function pickStatus(id, v) {
     var sp = S.posts.get(id);
@@ -3948,11 +3987,6 @@
   function buildDetail(p) {
     S.detailBuilt = p.id;
     var ro = S.canWrite ? "" : " disabled";
-    var fmtBtns = FORMAT_ORDER.map(function (f) {
-      return '<button type="button" class="tog fmtbtn f-' + f + '" id="fmt-' + f +
-        '" data-act="setfmt" data-v="' + f + '" aria-pressed="false">' + fIcon(f) +
-        FORMATS[f].label + "</button>";
-    }).join("");
     var platBtns = Object.keys(PLATFORMS).map(function (k) {
       return '<button type="button" class="tog" id="pl-' + k + '" data-act="togplat" data-v="' + k +
         '" aria-pressed="false">' + PLATFORMS[k] + "</button>";
@@ -3969,14 +4003,14 @@
     main.innerHTML = '<div id="detail">' +
       '<div class="detail-head"><button class="btn ghost" type="button" data-act="back">← ' +
       (S.last === "calendario" ? "Calendario" : "Lista") + "</button>" +
-      '<div class="dh-right"><span class="saved" id="saveState" aria-live="polite"></span><span id="stWrap"></span>' +
-      '<span id="delWrap"><button class="btn ghost danger" type="button" data-act="del">Eliminar</button></span>' +
+      '<div class="dh-right"><span class="saved" id="saveState" aria-live="polite"></span>' +
+      (S.canWrite ? '<span id="delWrap"><button class="btn ghost more-btn" type="button" data-act="moremenu" aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones">' + MORE_SVG + "</button></span>" : "") +
       '<span id="delConfirm" hidden>¿Eliminar este post? <button class="btn sm" type="button" data-act="delno">Cancelar</button> <button class="btn sm danger" type="button" data-act="delyes">Sí, eliminar</button></span></div></div>' +
       // Cabecera: título y, en una fila, formato · plataformas · fecha y hora
       '<section class="card dhead"><label class="sr" for="f-title">Título</label><input id="f-title" class="in title" data-f="title" type="text" placeholder="Título o idea del post" autocomplete="off"' +
       ro + ">" +
-      '<div class="dmeta"><div class="fld"><span class="lbl" id="lbl-fmt">Formato</span><div class="wrapr" role="group" aria-labelledby="lbl-fmt">' +
-      fmtBtns + "</div></div>" +
+      '<div class="dmeta"><div class="fld"><span class="lbl">Estado</span><span id="stWrap"></span></div>' +
+      '<div class="fld"><span class="lbl" id="lbl-fmt">Formato</span><span id="fmtWrap"></span></div>' +
       '<div class="fld"><span class="lbl" id="lbl-plat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="lbl-plat">' +
       platBtns + "</div></div>" +
       '<div class="fld dm-when"><span class="lbl">Publicación</span>' + dtFields("f", true) + "</div></div></section>" +
@@ -4269,9 +4303,11 @@
       var v = p[f] == null ? "" : String(p[f]);
       if (el.value !== v) el.value = v;
     });
-    FORMAT_ORDER.forEach(function (f) {
-      $("#fmt-" + f).setAttribute("aria-pressed", String(p.format === f));
-    });
+    var fw = $("#fmtWrap"), fk = (FORMATS[p.format] ? p.format : "reel") + (S.canWrite ? "w" : "r");
+    if (fw && fw.dataset.k !== fk) {
+      fw.innerHTML = fmtSelect(p);
+      fw.dataset.k = fk;
+    }
     Object.keys(PLATFORMS).forEach(function (k) {
       $("#pl-" + k).setAttribute("aria-pressed", String((p.platforms || []).indexOf(k) >= 0));
     });
@@ -4903,7 +4939,36 @@
         toggleTaken(p);
         paintDetail();
         break;
+      case "moremenu":
+        if (stMenuBtn === el) closeStMenu(false);
+        else {
+          openMenu(el, '<button class="mi" type="button" role="menuitem" data-act="dup">Duplicar</button>' +
+            '<button class="mi danger" type="button" role="menuitem" data-act="del">Eliminar</button>', "acts-menu", true);
+        }
+        break;
+      case "fmtmenu":
+        p = S.posts.get(S.postId);
+        if (!p) break;
+        if (stMenuBtn === el) closeStMenu(false);
+        else {
+          openMenu(el, FORMAT_ORDER.map(function (f) {
+            return '<button class="tog fmtbtn f-' + f + '" type="button" role="menuitemradio" aria-checked="' + (p.format === f) +
+              '" aria-pressed="' + (p.format === f) + '" data-act="fmtpick" data-v="' + f + '">' + fIcon(f) + FORMATS[f].label + "</button>";
+          }).join(""), "fmt-menu");
+        }
+        break;
+      case "fmtpick":
+        closeStMenu(false);
+        setFormat(S.posts.get(S.postId), el.dataset.v);
+        var fb = $("#fmtWrap button");
+        if (fb) fb.focus();
+        break;
+      case "dup":
+        closeStMenu(false);
+        duplicatePost(S.posts.get(S.postId));
+        break;
       case "del":
+        closeStMenu(false);
         $("#delWrap").hidden = true;
         $("#delConfirm").hidden = false;
         break;
