@@ -120,7 +120,10 @@ function pintarCabecera() {
   // «← Mis clientes» vuelve al inicio (lista de clientes, tu cuenta y, si eres administrador, el equipo);
   // «Salir» cierra la sesión.
   const volver = document.getElementById("volver");
-  if (volver) {
+  // La cabecera se repinta con cada refresco: el selector se engancha una sola vez (si no, con dos oyentes uno abre
+  // el popup y el otro lo cierra en el mismo clic).
+  if (volver && !volver.dataset.selector) {
+    volver.dataset.selector = "1";
     volver.href = `${BASE}/`;
     volver.setAttribute("aria-haspopup", "dialog");
     volver.setAttribute("aria-expanded", "false");
