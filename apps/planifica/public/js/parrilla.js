@@ -51,6 +51,7 @@
   var FORMAT_ORDER = ["reel", "foto", "carrusel", "historia", "diseno"];
   var STATUS = {
     idea: "Idea",
+    contenido: "Contenido",
     porproducir: "Por producir",
     produccion: "En producción",
     listo: "Por publicar",
@@ -364,29 +365,30 @@
   }
 
   /* ---------- Writes ---------- */
-  var pending = {}, chain = {};
+  var pending = {}, chain = {}, saving = {};
   function canW() {
     if (S.canWrite) return true;
     toast("Solo lectura: pide a un administrador acceso de editor.");
     return false;
   }
-  /** Un post en «Idea» que recibe fecha pasa solo a «Por producir» (los más avanzados no se tocan). */
+  /** Un post en «Idea» que recibe fecha pasa solo a «Contenido» (los más avanzados no se tocan). */
   function conFechaPorProducir(path, patch) {
     if (path.indexOf("posts/") !== 0 || !patch.date || patch.status) return patch;
     var p = S.posts.get(path.slice(6));
     if (!p || (p.status || "idea") !== "idea") return patch;
-    p.status = "porproducir";
-    toast("Pasó a «Por producir» porque ya tiene fecha.");
+    p.status = "contenido";
+    toast("Pasó a «Contenido» porque ya tiene fecha.");
     setTimeout(function () {
       if (S.view === "detalle") paintDetail();
       else render();
     }, 0);
-    return Object.assign({}, patch, { status: "porproducir" });
+    return Object.assign({}, patch, { status: "contenido" });
   }
   function queueSave(path, patch, delay) {
     if (!db || !canW()) return;
     patch = conFechaPorProducir(path, patch);
     var e = pending[path] || (pending[path] = { patch: {}, timer: null });
+    setTimeout(paintSave, 0);
     Object.assign(e.patch, patch);
     clearTimeout(e.timer);
     if (delay === 0) flush(path);
@@ -400,6 +402,7 @@
     clearTimeout(e.timer);
     delete pending[path];
     var patch = Object.assign({}, e.patch, { updatedAt: Date.now(), updatedBy: S.uid || null });
+    saving[path] = (saving[path] || 0) + 1;
     chain[path] = (chain[path] || Promise.resolve()).then(function () {
       var ref = db.doc(path);
       return ref.update(patch).catch(function (err) {
@@ -414,6 +417,10 @@
         }
         fail(err);
       });
+    }).then(function () {
+      saving[path]--;
+      if (!saving[path]) delete saving[path];
+      paintSave();
     });
   }
   function flushAll() {
@@ -452,7 +459,7 @@
       updatedAt: ts,
       updatedBy: S.uid || null,
     }, data || {});
-    if (doc.date && doc.status === "idea") doc.status = "porproducir";
+    if (doc.date && doc.status === "idea") doc.status = "contenido";
     S.posts.set(id, Object.assign({ id: id }, doc));
     return db.doc("posts/" + id).set(doc).then(function () {
       return id;
@@ -545,9 +552,10 @@
       '<button class="btn ghost" type="button" data-act="today">' + (q ? "Este trimestre" : "Hoy") +
       "</button></div>";
   }
-  /* Iconos de estado progresivos: círculo punteado → ¼ → ½ → ¾ → hecho. */
+  /* Iconos de estado progresivos: círculo punteado → ⅛ → ¼ → ½ → ¾ → hecho. */
   var ST_ICON = {
     idea: '<circle cx="8" cy="8" r="6.25" stroke-dasharray="2.4 2.5"/>',
+    contenido: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 11.005 4.995z"/>',
     porproducir: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 12.25 8z"/>',
     produccion: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 3.75a4.25 4.25 0 0 1 0 8.5z"/>',
     listo: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 1 1 3.75 8z"/>',
@@ -766,6 +774,15 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && S.impOpen) {
       closeImp();
+      return;
+    }
+    if (e.key === "Escape" && S.npOpen) {
+      closeNewPost();
+      return;
+    }
+    if (e.key === "Enter" && S.npOpen && e.target && e.target.id === "np-title") {
+      e.preventDefault();
+      saveNewPost();
       return;
     }
     if (!stMenuEl) return;
@@ -3271,6 +3288,79 @@
     return h + "</section>";
   }
   /* Ventana para registrar o editar un impulso (un post de la parrilla impulsado en Meta). */
+  /* ---------- Nuevo post: una ventana corta; se guarda solo al pulsar «Crear post» ---------- */
+  function closeNewPost() {
+    var o = document.getElementById("npOv");
+    if (o) o.remove();
+    S.npOpen = null;
+  }
+  function openNewPost(data) {
+    if (!canW()) return;
+    closeNewPost();
+    var fmt = data.format || "reel";
+    S.npOpen = { format: fmt, platforms: defaultPlats(fmt), date: data.date || "" };
+    var ov = document.createElement("div");
+    ov.id = "npOv";
+    ov.className = "sheet-ov";
+    ov.innerHTML = '<div class="sheet np" role="dialog" aria-modal="true" aria-labelledby="npT"><h2 id="npT">Nuevo post</h2>' +
+      '<div class="fld"><label for="np-title">Título</label><input id="np-title" class="in" type="text" placeholder="Título o idea del post" autocomplete="off"></div>' +
+      '<div class="fld"><span class="lbl" id="np-lfmt">Formato</span><div class="wrapr" role="group" aria-labelledby="np-lfmt" id="np-fmts"></div></div>' +
+      '<div class="fld"><span class="lbl" id="np-lplat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="np-lplat" id="np-plats"></div></div>' +
+      '<div class="r2"><div class="fld"><label for="np-date">Fecha <span class="mut">(opcional)</span></label><input id="np-date" class="in" type="date" value="' +
+      esc(S.npOpen.date) + '"></div><div class="fld"><label for="np-time">Hora <span class="mut">(opcional)</span></label><input id="np-time" class="in" type="time"></div></div>' +
+      '<p class="imp-err" id="npErr" hidden></p>' +
+      '<div class="acts"><span class="grow"></span><button class="btn" type="button" data-act="npclose">Cancelar</button>' +
+      '<button class="btn primary" type="button" data-act="npsave">Crear post</button></div></div>';
+    ov.addEventListener("mousedown", function (e) {
+      if (e.target === ov) closeNewPost();
+    });
+    document.body.appendChild(ov);
+    paintNewPost();
+    document.getElementById("np-title").focus();
+  }
+  function paintNewPost() {
+    var st = S.npOpen;
+    if (!st) return;
+    document.getElementById("np-fmts").innerHTML = FORMAT_ORDER.map(function (f) {
+      return '<button type="button" class="tog fmtbtn f-' + f + '" data-act="npfmt" data-v="' + f + '" aria-pressed="' +
+        (st.format === f) + '">' + fIcon(f) + FORMATS[f].label + "</button>";
+    }).join("");
+    document.getElementById("np-plats").innerHTML = Object.keys(PLATFORMS).map(function (k) {
+      return '<button type="button" class="tog" data-act="npplat" data-v="' + k + '" aria-pressed="' +
+        (st.platforms.indexOf(k) >= 0) + '">' + PLATFORMS[k] + "</button>";
+    }).join("");
+  }
+  function saveNewPost() {
+    var st = S.npOpen;
+    if (!st || st.busy) return;
+    var title = document.getElementById("np-title").value.trim();
+    if (!title) {
+      var er = document.getElementById("npErr");
+      er.textContent = "Escribe un título para crear el post.";
+      er.hidden = false;
+      document.getElementById("np-title").focus();
+      return;
+    }
+    st.busy = true;
+    var date = document.getElementById("np-date").value;
+    createPost({
+      title: title,
+      format: st.format,
+      platforms: st.platforms.slice(),
+      shoot: isShootDefault(st.format),
+      date: date,
+      time: date ? document.getElementById("np-time").value : "",
+    }).then(function (id) {
+      if (!id) {
+        st.busy = false;
+        return;
+      }
+      closeNewPost();
+      toast("Post creado");
+      go("post-" + id);
+    });
+  }
+
   function closeImp() {
     var o = document.getElementById("impOv");
     if (o) o.remove();
@@ -3701,65 +3791,77 @@
       return '<button type="button" class="tog" id="pl-' + k + '" data-act="togplat" data-v="' + k +
         '" aria-pressed="false">' + PLATFORMS[k] + "</button>";
     }).join("");
+    var dis = S.canWrite ? "" : " disabled";
+    function opt(k, label) {
+      return '<button type="button" class="btn sm ghost opt-add" id="optadd-' + k + '" data-act="optopen" data-v="' + k + '"' + dis +
+        ">+ " + label + "</button>";
+    }
+    function copyRow(id, label, cnt, btn) {
+      return '<div class="lblrow"><label for="' + id + '">' + label + '</label><span class="cnt" id="' + cnt + '"></span>' +
+        '<button class="btn sm ghost" type="button" data-act="copyfield" data-target="' + id + '">' + btn + "</button></div>";
+    }
     main.innerHTML = '<div id="detail">' +
       '<div class="detail-head"><button class="btn ghost" type="button" data-act="back">← ' +
       (S.last === "calendario" ? "Calendario" : "Lista") + "</button>" +
-      '<div class="dh-right"><span id="stWrap"></span>' +
-      '<span id="delWrap"><button class="btn danger" type="button" data-act="del">Eliminar</button></span>' +
+      '<div class="dh-right"><span class="saved" id="saveState" aria-live="polite"></span><span id="stWrap"></span>' +
+      '<span id="delWrap"><button class="btn ghost danger" type="button" data-act="del">Eliminar</button></span>' +
       '<span id="delConfirm" hidden>¿Eliminar este post? <button class="btn sm" type="button" data-act="delno">Cancelar</button> <button class="btn sm danger" type="button" data-act="delyes">Sí, eliminar</button></span></div></div>' +
+      // Cabecera: título y, en una fila, formato · plataformas · fecha y hora
+      '<section class="card dhead"><label class="sr" for="f-title">Título</label><input id="f-title" class="in title" data-f="title" type="text" placeholder="Título o idea del post" autocomplete="off"' +
+      ro + ">" +
+      '<div class="dmeta"><div class="fld"><span class="lbl" id="lbl-fmt">Formato</span><div class="wrapr" role="group" aria-labelledby="lbl-fmt">' +
+      fmtBtns + "</div></div>" +
+      '<div class="fld"><span class="lbl" id="lbl-plat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="lbl-plat">' +
+      platBtns + "</div></div>" +
+      '<div class="fld dm-when"><span class="lbl">Publicación</span><div class="dm-dt"><label class="sr" for="f-date">Fecha de publicación</label><input id="f-date" class="in" data-f="date" type="date"' +
+      ro + '><label class="sr" for="f-time">Hora</label><input id="f-time" class="in" data-f="time" type="time"' + ro + "></div></div></div></section>" +
       '<div class="dtabs seg" role="group" aria-label="Sección del post">' +
-      [["contenido", "Contenido"], ["produccion", "Producción"]].map(function (x) {
-        return '<button type="button" data-act="dtab" data-v="' + x[0] + '" aria-pressed="' +
+      [["contenido", "Contenido"], ["produccion", "Producción"], ["resultados", "Resultados"]].map(function (x) {
+        return '<button type="button" data-act="dtab" data-v="' + x[0] + '" id="dtab-' + x[0] + '" aria-pressed="' +
           (S.dtab === x[0]) + '">' + x[1] + "</button>";
       }).join("") + "</div>" +
       '<div class="grid2" id="dgrid" data-tab="' + S.dtab + '"><div class="col col-contenido">' +
       '<section class="card"><h3>Contenido</h3>' +
-      '<div class="fld"><label class="sr" for="f-title">Título</label><input id="f-title" class="in title" data-f="title" type="text" placeholder="Título o idea del post" autocomplete="off"' +
-      ro + "></div>" +
-      '<div class="fld"><span class="lbl" id="lbl-fmt">Formato</span><div class="wrapr" role="group" aria-labelledby="lbl-fmt">' +
-      fmtBtns + "</div></div>" +
-      '<div class="fld"><span class="lbl" id="lbl-plat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="lbl-plat">' +
-      platBtns + "</div></div>" +
-      '<div class="r2"><div class="fld"><label for="f-date">Fecha de publicación</label><input id="f-date" class="in" data-f="date" type="date"' +
-      ro + "></div>" +
-      '<div class="fld"><label for="f-time">Hora</label><input id="f-time" class="in" data-f="time" type="time"' +
-      ro + "></div></div>" +
-      '<div class="fld"><label for="f-drive">Carpeta de Drive</label><div class="drivebox"><input id="f-drive" class="in" data-f="drive" type="url" inputmode="url" placeholder="Pega el link de la carpeta con los contenidos" autocomplete="off" spellcheck="false"' +
+      '<div class="fld">' + copyRow("f-copy", "Copy", "cnt-copy", "Copiar") +
+      '<textarea id="f-copy" class="in" data-f="copy" rows="5" placeholder="Texto que acompaña la publicación"' + ro + "></textarea></div>" +
+      '<div class="fld">' + copyRow("f-hashtags", "Hashtags", "cnt-tags", "Copiar") +
+      '<textarea id="f-hashtags" class="in" data-f="hashtags" rows="2" placeholder="#hashtag1 #hashtag2"' + ro + "></textarea></div>" +
+      '<div class="fld"><label for="f-drive">Carpeta de Drive</label><div class="drivebox"><input id="f-drive" class="in" data-f="drive" type="url" inputmode="url" placeholder="Link de la carpeta con los contenidos" autocomplete="off" spellcheck="false"' +
       ro + '><span id="driveOpen"></span></div><div class="hint" id="driveHint" hidden><span class="over">Ese link no parece válido.</span></div></div>' +
-      '<div class="fld" id="igLinkFld"><label for="f-igLink">Link en Instagram</label><input id="f-igLink" class="in" data-f="igLink" type="url" inputmode="url" placeholder="Pega el link del post cuando se publique" autocomplete="off" spellcheck="false"' +
-      ro + "></div>" +
-      '<div class="fld"><label for="f-copy">Copy</label><textarea id="f-copy" class="in" data-f="copy" rows="7" placeholder="Texto que acompaña la publicación"' +
-      ro + "></textarea>" +
-      '<div class="hint"><span id="cnt-copy"></span><button class="btn sm" type="button" data-act="copyfield" data-target="f-copy">Copiar copy</button></div></div>' +
-      '<div class="fld"><label for="f-hashtags">Hashtags</label><textarea id="f-hashtags" class="in" data-f="hashtags" rows="3" placeholder="#hashtag1 #hashtag2"' +
-      ro + "></textarea>" +
-      '<div class="hint"><span id="cnt-tags"></span><button class="btn sm" type="button" data-act="copyfield" data-target="f-hashtags">Copiar hashtags</button></div></div>' +
-      '</section>' +
-      '<section class="card" id="igCard" hidden><div class="card-h"><h3>Métricas de Instagram</h3><span id="igAct"></span></div><div id="igBody"></div></section>' +
-      '<section class="card" id="adsCard" hidden><div class="card-h"><h3>Impulsos</h3><span id="adsAct"></span></div><div id="adsBody"></div></section>' +
-      '</div><div class="col col-produccion">' +
-      '<section class="card"><div class="card-h"><h3>Producción</h3><button class="sw" id="sw-shoot" type="button" role="switch" aria-checked="false" data-act="togshoot"><span class="trk"></span><span>Incluir en la pauta</span></button></div>' +
-      '<p class="muted" id="shootHint"></p>' +
-      '<div class="fld"><label for="f-direction">Dirección creativa (descripción)</label><textarea id="f-direction" class="in" data-f="direction" rows="5" placeholder="Describe el reel o la pieza: idea, tono, estilo visual, música…"' +
+      "</section></div>" +
+      '<div class="col col-produccion">' +
+      '<section class="card"><div class="card-h"><h3>Producción</h3><button class="sw" id="sw-shoot" type="button" role="switch" aria-checked="false" data-act="togshoot" title="Aparece en la pauta audiovisual del mes de publicación"><span class="trk"></span><span>En la pauta</span></button></div>' +
+      '<div class="fld"><label for="f-direction">Dirección creativa</label><textarea id="f-direction" class="in" data-f="direction" rows="4" placeholder="Idea, tono, estilo visual, música…"' +
       ro + "></textarea></div>" +
-      '<div class="fld refbox" id="refBox"><div class="card-h"><label class="lbl" for="f-refs">Referencias (opcional)</label>' +
-      '<button class="sw" id="sw-refshow" type="button" role="switch" aria-checked="true" data-act="togrefshow"><span class="trk"></span><span>Mostrar en la pauta</span></button></div>' +
-      '<textarea id="f-refs" class="in" data-f="refs" rows="3" placeholder="Pega links de referencia o escribe notas. También puedes pegar o arrastrar imágenes aquí."' +
+      '<div class="fld" id="shotsFld"><div class="lblrow"><span class="lbl" id="lbl-shot">Lista de tomas</span><span class="cnt" id="shotProg"></span>' +
+      '<button class="ck-inline" id="sw-done" type="button" role="checkbox" aria-checked="false" data-act="togdone">' + CHECK_SVG + "<span>Ya se tomó</span></button></div>" +
+      '<div class="shots" id="shotsBox" role="group" aria-labelledby="lbl-shot"></div>' +
+      '<div><button class="btn sm ghost" type="button" id="shotAdd" data-act="shotadd"' + ro + ">+ Añadir toma</button></div></div>" +
+      // Lo opcional: se abre al usarlo
+      '<div class="fld opt refbox" id="opt-refs" hidden><div class="lblrow"><label for="f-refs">Referencias</label>' +
+      '<button class="ck-inline" id="sw-refshow" type="button" role="checkbox" aria-checked="true" data-act="togrefshow">' + CHECK_SVG + "<span>Mostrar en la pauta</span></button></div>" +
+      '<textarea id="f-refs" class="in" data-f="refs" rows="2" placeholder="Links o notas. También puedes pegar o arrastrar imágenes aquí."' +
       ro + "></textarea>" +
       '<div id="refLinks"></div><div class="thumbs" id="refThumbs"></div>' +
-      '<div class="hint"><span id="refStatus"></span><span><input id="refFile" type="file" accept="image/*" multiple hidden><button class="btn sm" type="button" id="refAdd" data-act="refadd"' +
-      ro + ">+ Añadir imágenes</button></span></div></div>" +
-      '<div class="fld"><span class="lbl" id="lbl-shot">Lista de tomas</span><div class="shots" id="shotsBox" role="group" aria-labelledby="lbl-shot"></div><div class="hint"><span id="shotProg"></span><button class="btn sm" type="button" id="shotAdd" data-act="shotadd"' +
-      ro +
-      '>+ Añadir toma</button></div></div><div class="fld"><label for="f-voice">Guión de voz (opcional)</label><textarea id="f-voice" class="in" data-f="voice" rows="4" placeholder="Una frase por línea. Déjalo vacío si no lleva voz."' +
+      '<div class="hint"><span id="refStatus"></span><span><input id="refFile" type="file" accept="image/*" multiple hidden><button class="btn sm ghost" type="button" id="refAdd" data-act="refadd"' +
+      ro + ">+ Imágenes</button></span></div></div>" +
+      '<div class="fld opt" id="opt-voice" hidden><label for="f-voice">Guion de voz</label><textarea id="f-voice" class="in" data-f="voice" rows="3" placeholder="Una frase por línea"' +
       ro + "></textarea></div>" +
-      '<div class="fld"><label for="f-location">Locación</label><input id="f-location" class="in" data-f="location" type="text" placeholder="Dónde se graba o fotografía" autocomplete="off"' +
+      '<div class="r2 opt-r2"><div class="fld opt" id="opt-location" hidden><label for="f-location">Locación</label><input id="f-location" class="in" data-f="location" type="text" placeholder="Dónde se graba" autocomplete="off"' +
       ro + "></div>" +
-      '<div class="fld"><label for="f-props">Props y vestuario</label><input id="f-props" class="in" data-f="props" type="text" placeholder="Qué hay que llevar" autocomplete="off"' +
-      ro + "></div>" +
-      '<div class="card-h" id="doneRow"><button class="sw" id="sw-done" type="button" role="switch" aria-checked="false" data-act="togdone"><span class="trk"></span><span>Ya se tomó</span></button></div>' +
-      "</section>" +
-      '<p class="edited" id="editedBy"></p></div></div></div>';
+      '<div class="fld opt" id="opt-props" hidden><label for="f-props">Props y vestuario</label><input id="f-props" class="in" data-f="props" type="text" placeholder="Qué hay que llevar" autocomplete="off"' +
+      ro + "></div></div>" +
+      '<div class="opt-adds" id="optAdds">' + opt("refs", "Referencias") + opt("voice", "Guion de voz") + opt("location", "Locación") +
+      opt("props", "Props y vestuario") + "</div>" +
+      "</section></div>" +
+      // Resultados: link de Instagram, métricas e impulsos (cuando ya se publicó)
+      '<div class="col col-resultados" id="resWrap" hidden>' +
+      '<div class="res-grid"><section class="card" id="igCard" hidden><div class="card-h"><h3>Métricas de Instagram</h3><span id="igAct"></span></div>' +
+      '<div class="fld" id="igLinkFld"><label for="f-igLink">Link en Instagram</label><input id="f-igLink" class="in" data-f="igLink" type="url" inputmode="url" placeholder="Pega el link del post publicado" autocomplete="off" spellcheck="false"' +
+      ro + '></div><div id="igBody"></div></section>' +
+      '<section class="card" id="adsCard" hidden><div class="card-h"><h3>Impulsos</h3><span id="adsAct"></span></div><div id="adsBody"></div></section></div>' +
+      "</div></div>" +
+      '<p class="edited" id="editedBy"></p></div>';
     if (S.focusTitle && S.canWrite) {
       S.focusTitle = false;
       var t = $("#f-title");
@@ -3785,6 +3887,34 @@
       dop.innerHTML = dh ? driveLink({ drive: dh }, "btn sm") : "";
       $("#driveHint").hidden = !dv.value.trim() || !!dh;
     }
+  }
+  /* Campos opcionales de producción: se ven si tienen algo o si se abrieron; si no, un botón «+ …» los abre.
+     Locación, props y guion de voz son de la pauta: solo con «En la pauta». */
+  var OPT_F = { refs: "refs", voice: "voice", location: "location", props: "props" };
+  function paintOpts(p) {
+    var open = (S.optOpen && S.optOpen[p.id]) || {}, any = false;
+    Object.keys(OPT_F).forEach(function (k) {
+      var has = !!String(p[OPT_F[k]] || "").trim() || (k === "refs" && refImgs(p).length > 0);
+      var pauta = k !== "refs";
+      var show = (has || open[k]) && (!pauta || p.shoot || has);
+      $("#opt-" + k).hidden = !show;
+      var add = $("#optadd-" + k);
+      add.hidden = show || !S.canWrite || (pauta && !p.shoot);
+      if (!add.hidden) any = true;
+    });
+    $("#optAdds").hidden = !any;
+  }
+  /* «Autoguardado ✓»: mientras hay cambios por guardar dice «Guardando…». */
+  function paintSave() {
+    var el = $("#saveState");
+    if (!el) return;
+    if (!S.canWrite) {
+      el.textContent = "";
+      return;
+    }
+    var path = "posts/" + S.postId, busy = !!pending[path] || !!saving[path];
+    el.className = "saved" + (busy ? " busy" : "");
+    el.innerHTML = busy ? "Guardando…" : "Autoguardado " + CHECK_SVG;
   }
   function paintFooter() {
     var p = S.posts.get(S.postId), el = $("#editedBy");
@@ -3840,7 +3970,7 @@
     fn(arr);
     setShots(p, arr, 300);
     paintShots(p, true);
-    $("#doneRow").hidden = arr.length > 0;
+    $("#sw-done").hidden = arr.length > 0;
     return true;
   }
   function paintRefs(p) {
@@ -3986,15 +4116,28 @@
     $("#sw-shoot").setAttribute("aria-checked", String(!!p.shoot));
     $("#sw-done").setAttribute("aria-checked", String(!!p.shotDone));
     paintShots(p, false);
-    $("#doneRow").hidden = shotCount(p).n > 0;
+    // Lista de tomas: solo si va en la pauta. «Ya se tomó» solo cuando no hay tomas que marcar.
+    $("#shotsFld").hidden = !p.shoot;
+    $("#sw-done").hidden = shotCount(p).n > 0;
     $("#sw-refshow").setAttribute("aria-checked", String(p.refShow !== false));
+    $("#sw-refshow").hidden = !p.shoot;
     paintRefs(p);
     $("#lbl-shot").textContent = (FORMATS[p.format] || FORMATS.reel).list;
-    $("#shootHint").textContent = p.shoot
-      ? "Aparece en la pauta audiovisual del mes de publicación."
-      : "No aparece en la pauta. Actívalo si hay que grabar o fotografiar algo.";
+    paintOpts(p);
     paintCounters();
     paintFooter();
+    paintSave();
+    // Resultados: link de Instagram, métricas e impulsos; aparece al publicarse (o si ya hay link o impulsos)
+    var res = hasIg(p) && (p.status === "publicado" || !!String(p.igLink || "").trim() || impulsosDe(p.id).length > 0);
+    $("#resWrap").hidden = !res;
+    $("#dtab-resultados").hidden = !res;
+    if (!res && S.dtab === "resultados") {
+      S.dtab = "contenido";
+      $("#dgrid").dataset.tab = S.dtab;
+      document.querySelectorAll('[data-act="dtab"]').forEach(function (b2) {
+        b2.setAttribute("aria-pressed", String(b2.dataset.v === S.dtab));
+      });
+    }
     $("#igLinkFld").hidden = !hasIg(p);
     paintIg(p);
     paintAds(p);
@@ -4274,21 +4417,32 @@
         render();
         break;
       case "new":
-        createPost({}).then(function (id) {
-          if (id) {
-            S.focusTitle = true;
-            go("post-" + id);
-          }
-        });
+        openNewPost({});
         break;
       case "add":
         e.stopPropagation();
-        createPost({ date: el.dataset.date }).then(function (id) {
-          if (id) {
-            S.focusTitle = true;
-            go("post-" + id);
-          }
-        });
+        openNewPost({ date: el.dataset.date });
+        break;
+      case "npfmt":
+        if (S.npOpen) {
+          S.npOpen.format = el.dataset.v;
+          S.npOpen.platforms = defaultPlats(el.dataset.v);
+          paintNewPost();
+        }
+        break;
+      case "npplat":
+        if (S.npOpen) {
+          var npl = S.npOpen.platforms, npi = npl.indexOf(el.dataset.v);
+          if (npi >= 0) npl.splice(npi, 1);
+          else npl.push(el.dataset.v);
+          paintNewPost();
+        }
+        break;
+      case "npclose":
+        closeNewPost();
+        break;
+      case "npsave":
+        saveNewPost();
         break;
       case "selday":
         S.selDay = el.dataset.date;
@@ -4412,6 +4566,15 @@
         queueSave("posts/" + p.id, { refImgs: rarr }, 0);
         paintRefs(p);
         if (S.assets) S.assets.delete(rid).catch(function () {});
+        break;
+      case "optopen":
+        p = S.posts.get(S.postId);
+        if (!p) break;
+        S.optOpen = S.optOpen || {};
+        (S.optOpen[p.id] = S.optOpen[p.id] || {})[el.dataset.v] = true;
+        paintOpts(p);
+        var of = $("#opt-" + el.dataset.v + " .in");
+        if (of) of.focus();
         break;
       case "togrefshow":
         p = S.posts.get(S.postId);
@@ -4907,17 +5070,17 @@
     addRefFiles(fs);
   });
   document.addEventListener("dragover", function (e) {
-    var b = e.target.closest && e.target.closest("#refBox");
+    var b = e.target.closest && e.target.closest("#opt-refs");
     if (!b) return;
     e.preventDefault();
     b.classList.add("over");
   });
   document.addEventListener("dragleave", function (e) {
-    var b = e.target.closest && e.target.closest("#refBox");
+    var b = e.target.closest && e.target.closest("#opt-refs");
     if (b) b.classList.remove("over");
   });
   document.addEventListener("drop", function (e) {
-    var b = e.target.closest && e.target.closest("#refBox");
+    var b = e.target.closest && e.target.closest("#opt-refs");
     if (!b) return;
     e.preventDefault();
     b.classList.remove("over");

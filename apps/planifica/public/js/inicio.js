@@ -163,7 +163,7 @@ function vistaClientes(s) {
 }
 
 // ── Próximos: lo que hay que publicar en los próximos días, de todos tus clientes ──
-const ESTADOS = { idea: "Idea", porproducir: "Por producir", produccion: "En producción", listo: "Por publicar" };
+const ESTADOS = { idea: "Idea", contenido: "Contenido", porproducir: "Por producir", produccion: "En producción", listo: "Por publicar" };
 const FORMATOS = { reel: "Reel", carrusel: "Carrusel", foto: "Foto", historia: "Historia", diseno: "Diseño" };
 const REDES = { ig: "IG", tt: "TT" };
 

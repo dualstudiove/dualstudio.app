@@ -26,7 +26,7 @@ export const CAMPOS_PUBLICACION = new Set([
   "igLink",
 ]);
 export const FORMATOS = new Set(["reel", "carrusel", "foto", "historia", "diseno"]);
-export const ESTADOS = new Set(["idea", "porproducir", "produccion", "listo", "publicado"]);
+export const ESTADOS = new Set(["idea", "contenido", "porproducir", "produccion", "listo", "publicado"]);
 export const PLATAFORMAS = new Set(["ig", "tt"]);
 
 const MAX_PUBLICACION = 64 * 1024; // bytes del JSON de una publicación

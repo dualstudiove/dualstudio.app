@@ -351,6 +351,10 @@
     --sc: var(--ink-2);
     --sbg: var(--line-2);
   }
+  .st-contenido {
+    --sc: var(--info);
+    --sbg: var(--info-bg);
+  }
   .st-porproducir {
     --sc: var(--warn);
     --sbg: var(--warn-bg);
@@ -2071,8 +2075,11 @@
     text-decoration: none;
   }
 
-  /* Detalle: en móvil, subpestañas Contenido / Producción */
+  /* Detalle: en móvil, subpestañas Contenido / Producción / Resultados */
   .dtabs {
+    display: none;
+  }
+  .dtabs button[hidden] {
     display: none;
   }
   @media (max-width:860px) {
@@ -2085,9 +2092,155 @@
       padding: 8px 12px;
     }
     #dgrid[data-tab="contenido"] .col-produccion,
-    #dgrid[data-tab="produccion"] .col-contenido {
+    #dgrid[data-tab="contenido"] .col-resultados,
+    #dgrid[data-tab="produccion"] .col-contenido,
+    #dgrid[data-tab="produccion"] .col-resultados,
+    #dgrid[data-tab="resultados"] .col-contenido,
+    #dgrid[data-tab="resultados"] .col-produccion {
       display: none;
     }
+  }
+
+  /* Detalle compacto: cabecera con título y una fila de formato · plataformas · publicación */
+  .card.dhead {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .dmeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 28px;
+    align-items: flex-end;
+  }
+  .dmeta .tog {
+    padding: 4px 11px;
+    font-size: 13px;
+  }
+  .dm-dt {
+    display: flex;
+    gap: 6px;
+  }
+  .dm-dt .in {
+    width: auto;
+    padding: 5px 8px;
+  }
+  .col-resultados {
+    grid-column: 1 / -1;
+  }
+  .col-resultados[hidden] {
+    display: none;
+  }
+  .res-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .res-grid > [hidden] {
+    display: none;
+  }
+  @media (max-width:860px) {
+    .res-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* Etiqueta con contador y acción a la derecha (Copy, Hashtags, Tomas, Referencias) */
+  .lblrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+  }
+  .lblrow > label,
+  .lblrow > .lbl {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .lblrow .cnt {
+    flex: 1;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .lblrow .cnt .over {
+    color: var(--danger);
+    font-weight: 600;
+  }
+  .lblrow > label + .ck-inline {
+    margin-left: auto;
+  }
+  .ck-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: none;
+    padding: 2px 0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .ck-inline[hidden] {
+    display: none;
+  }
+  .ck-inline svg {
+    width: 16px;
+    height: 16px;
+    padding: 2px;
+    border-radius: 4px;
+    border: 1.5px solid var(--ink-3);
+    color: transparent;
+  }
+  .ck-inline[aria-checked="true"] svg {
+    background: var(--ok);
+    border-color: var(--ok);
+    color: var(--bg);
+  }
+  .opt[hidden],
+  .opt-adds[hidden],
+  #shotsFld[hidden] {
+    display: none;
+  }
+  .opt-r2:not(:has(.opt:not([hidden]))) {
+    display: none;
+  }
+  .opt-r2:has(.opt[hidden]) {
+    grid-template-columns: 1fr;
+  }
+  .opt-adds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin: -4px 0 0 -8px;
+  }
+  .opt-adds .opt-add {
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .opt-adds .opt-add[hidden] {
+    display: none;
+  }
+  .saved {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--ink-3);
+    margin-right: 4px;
+  }
+  .saved svg {
+    width: 13px;
+    height: 13px;
+    color: var(--ok);
+  }
+  .saved.busy {
+    color: var(--ink-2);
+  }
+  .sheet.np .tog {
+    padding: 4px 11px;
+    font-size: 13px;
   }
 
   /* Menú de estados: las mismas píldoras, una debajo de otra */
@@ -2224,6 +2377,10 @@
   .chip.s-idea {
     --c: var(--ink-2);
     --cbg: var(--line-2);
+  }
+  .chip.s-contenido {
+    --c: var(--info);
+    --cbg: var(--info-bg);
   }
   .chip.s-porproducir {
     --c: var(--warn);

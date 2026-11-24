@@ -257,6 +257,10 @@
     background: var(--surface-2);
     color: var(--ink-2);
   }
+  .prox-st.st-contenido {
+    background: var(--info-bg);
+    color: var(--info);
+  }
   .prox-st.st-porproducir {
     background: var(--warn-bg);
     color: var(--warn);
