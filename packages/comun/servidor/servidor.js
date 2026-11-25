@@ -123,10 +123,13 @@ export function crearServidor({
 }) {
   const app = new Hono();
 
-  const paginaMensaje = (titulo, texto) => {
+  /** recargar: segundos para volver a cargar la página sola (para errores pasajeros). */
+  const paginaMensaje = (titulo, texto, { recargar = 0 } = {}) => {
     const hojas = estilos.map((e) => `<link rel="stylesheet" href="${escHtml(env.basePath + e)}">`)
       .join("");
-    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${
+      recargar ? `<meta http-equiv="refresh" content="${Number(recargar)}">` : ""
+    }<title>${
       escHtml(titulo)
     }</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">${hojas}</head><body class="mensaje"><main class="card centro"><h1>${
       escHtml(titulo)
@@ -241,6 +244,17 @@ export function crearServidor({
       ? e.message
       : "Ocurrió un error inesperado. Intenta de nuevo.";
     if (esApi(c)) return respJson(status, { error: mensaje });
+    // Un error inesperado al abrir una página suele ser pasajero: se pide un momento y la página se recarga sola
+    if (status >= 500) {
+      return respHtml(
+        status,
+        paginaMensaje(
+          "Un momento…",
+          "Estamos teniendo un problema momentáneo. La página se volverá a cargar sola enseguida.",
+          { recargar: 2 },
+        ),
+      );
+    }
     return respHtml(status, paginaMensaje("Ups", mensaje));
   });
 

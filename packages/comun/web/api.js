@@ -5,8 +5,28 @@
 //   const datos = await api('/api/x', { method: 'POST', body: { … } });
 //
 // Si falla, lanza un Error con el mensaje para el usuario y e.status (0 = sin conexión).
+// Las lecturas (GET) que fallan por algo pasajero (sin conexión o error del servidor) se reintentan solas, con
+// esperas cortas, antes de dar el error. Las escrituras no: podrían aplicarse dos veces.
+
+const ESPERAS_GET = [500, 1000, 2000]; // ms antes de cada reintento
 
 export function crearApi(resolver = (ruta) => ruta) {
+  const una = crearApiUnaVez(resolver);
+  return async function api(path, opciones = {}) {
+    const metodo = (opciones.method || "GET").toUpperCase();
+    for (let i = 0;; i++) {
+      try {
+        return await una(path, opciones);
+      } catch (e) {
+        const pasajero = e.status === 0 || e.status >= 500;
+        if (metodo !== "GET" || !pasajero || i >= ESPERAS_GET.length) throw e;
+        await new Promise((r) => setTimeout(r, ESPERAS_GET[i]));
+      }
+    }
+  };
+}
+
+function crearApiUnaVez(resolver) {
   return async function api(path, { method = "GET", body } = {}) {
     const opt = { method, headers: { "x-app": "1" }, credentials: "same-origin" };
     if (body !== undefined) {
