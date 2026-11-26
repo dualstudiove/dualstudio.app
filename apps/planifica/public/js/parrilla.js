@@ -308,7 +308,8 @@
     // Lista (siempre continua): agrupar por mes o estado, ordenar por fecha o formato, vista simplificada (tarjetas)
     // o detallada (tabla, solo en computadora). Se recuerdan en el navegador.
     lgroup: pref("pc_lgroup", ["mes", "estado"]),
-    lsort: pref("pc_lsort", ["fecha", "formato"]),
+    lsort: pref("pc_lsort", ["fecha", "titulo", "formato", "redes", "estado"]),
+    ldir: pref("pc_ldir", ["asc", "desc"]),
     lview: pref("pc_lview", ["simple", "detalle"]),
     pubOpen: false,
     mdel: "",
@@ -703,7 +704,7 @@
           }).join("") + "</div></div>";
       };
       h += seg("Agrupar", "lgroup", S.lgroup, [["mes", "Mes"], ["estado", "Estado"]]) +
-        seg("Ordenar", "lsort", S.lsort, [["fecha", "Fecha"], ["formato", "Formato"]]) +
+        seg("Ordenar", "lsort", S.lsort, [["fecha", "Fecha"], ["formato", "Formato"]], S.lview === "detalle" ? "only-simple" : "") +
         seg("Vista", "lview", S.lview, [["simple", "Simplificada"], ["detalle", "Detallada"]], "lview");
     }
     if (legend) {
@@ -1015,63 +1016,66 @@
 
   /* ---------- Views ---------- */
   /* ---------- Lista: siempre continua (todos los meses) ----------
-     Agrupar por mes (con su cabecera: tema, posts, Objetivos y + Post) o por estado; ordenar por fecha o formato (lo
-     mismo para todos los grupos). Lo publicado va recogido; las ideas sin fecha, al final. Dos formas: simplificada
-     (tarjetas) y detallada (tabla editable; solo en computadora). */
+     Agrupar por mes (con su cabecera: tema, posts, Objetivos y + Post) o por estado. Lo publicado va recogido; las
+     ideas sin fecha, al final. Dos formas: simplificada (tarjetas) y detallada (una sola tabla, solo en computadora,
+     con el encabezado arriba: se ordena tocando los encabezados y todo se edita en la fila). */
   var MOBILE_Q = "(max-width: 860px)";
+  var PEN_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></svg>';
   function esMovil() {
     return !!(window.matchMedia && window.matchMedia(MOBILE_Q).matches);
   }
+  var STATUS_ORDER = Object.keys(STATUS);
   function lsorter(a, b) {
-    if (S.lsort === "formato") {
-      var fa = FORMAT_ORDER.indexOf(a.format), fb = FORMAT_ORDER.indexOf(b.format);
-      if (fa !== fb) return (fa < 0 ? 99 : fa) - (fb < 0 ? 99 : fb);
-    }
-    return cmp(a, b);
+    var k = S.lsort, d = 0;
+    if (k === "titulo") d = (a.title || "").localeCompare(b.title || "", "es", { sensitivity: "base" });
+    else if (k === "formato") d = FORMAT_ORDER.indexOf(a.format) - FORMAT_ORDER.indexOf(b.format);
+    else if (k === "estado") d = STATUS_ORDER.indexOf(a.status || "idea") - STATUS_ORDER.indexOf(b.status || "idea");
+    else if (k === "redes") d = platAbbr(a).localeCompare(platAbbr(b));
+    if (!d) d = cmp(a, b);
+    return S.ldir === "desc" ? -d : d;
   }
-  function itemsHtml(list, detalle) {
-    if (!detalle) {
-      return '<div class="rows">' + list.map(function (p) {
-        return row(p);
-      }).join("") + "</div>";
-    }
-    return '<div class="ltable-wrap"><table class="ltable"><thead><tr><th>Fecha</th><th>Título</th><th>Formato</th><th>Redes</th>' +
-      '<th title="Incluir en la pauta">Pauta</th><th>Drive</th><th>Estado</th></tr></thead><tbody>' +
-      list.map(trow).join("") + "</tbody></table></div>";
+  var LCOLS = [["titulo", "Título"], ["fecha", "Fecha"], ["formato", "Formato"], ["redes", "Redes"], ["", "Pauta"], ["", "Drive"], ["estado", "Estado"]];
+  function lthead() {
+    return "<thead><tr>" + LCOLS.map(function (c) {
+      if (!c[0]) return '<th class="th-c">' + c[1] + "</th>";
+      var on = S.lsort === c[0];
+      return '<th aria-sort="' + (on ? (S.ldir === "desc" ? "descending" : "ascending") : "none") + '"><button type="button" class="th-s' + (on ? " on" : "") +
+        '" data-act="lsortby" data-v="' + c[0] + '">' + c[1] + '<span class="th-ar" aria-hidden="true">' + (on ? (S.ldir === "desc" ? "↓" : "↑") : "↕") +
+        "</span></button></th>";
+    }).join("") + "</tr></thead>";
   }
-  /** Una fila de la tabla: todo se edita ahí mismo (título, fecha y hora, formato, redes, pauta y estado). */
+  /** Una fila de la tabla: se ve como texto; al pasar el mouse se nota qué se puede editar. */
   function trow(p) {
     var w = S.canWrite, id = esc(p.id), f = FORMATS[p.format] ? p.format : "reel";
-    var title = w
+    var title = S.tEdit === p.id && w
       ? '<input class="tin" id="t-title-' + id + '" data-tf="title" data-id="' + id + '" value="' + esc(p.title || "") +
         '" placeholder="Sin título" autocomplete="off" aria-label="Título">'
-      : "<span>" + (p.title ? esc(p.title) : "<em>Sin título</em>") + "</span>";
+      : '<a class="tlink" href="#post-' + id + '">' + (p.title ? esc(p.title) : "<em>Sin título</em>") + "</a>" +
+        (w ? '<button type="button" class="tedit" data-act="tedit" data-id="' + id + '" title="Cambiar el nombre" aria-label="Cambiar el nombre">' + PEN_SVG + "</button>" : "");
     var dt = w
-      ? '<div class="dtf tdt"><input type="hidden" id="t-date-' + id + '" data-tf="date" data-id="' + id + '" value="' + esc(p.date || "") + '">' +
+      ? '<input type="hidden" id="t-date-' + id + '" data-tf="date" data-id="' + id + '" value="' + esc(p.date || "") + '">' +
         '<input type="hidden" id="t-time-' + id + '" data-tf="time" data-id="' + id + '" value="' + esc(p.time || "") + '">' +
-        '<button type="button" class="dtbtn" data-act="dtopen" data-kind="date" data-for="t-date-' + id + '" aria-haspopup="dialog"><span></span></button>' +
-        '<button type="button" class="dtbtn" data-act="dtopen" data-kind="time" data-for="t-time-' + id + '" aria-haspopup="dialog"><span></span></button></div>'
-      : esc(p.date ? cap(fmtLong(p.date)) : "Sin fecha") + (p.time ? " · " + esc(p.time) : "");
+        '<button type="button" class="dtbtn tcell" data-act="dtopen" data-kind="datetime" data-for="t-date-' + id + '" data-time="t-time-' + id +
+        '" aria-haspopup="dialog"><span></span></button>'
+      : '<span class="tcell">' + esc(p.date ? fmtDateLong(p.date) + (p.time ? " / " + fmtTime(p.time) : "") : "Sin fecha") + "</span>";
+    var fmtTag = '<span class="tag tfmt f-' + f + '">' + fIcon(f) + FORMATS[f].label + "</span>";
     var fmt = w
-      ? '<button class="tog fmtbtn fmtsel f-' + f + '" type="button" aria-pressed="true" data-act="tfmtmenu" data-id="' + id +
-        '" aria-haspopup="menu" aria-expanded="false">' + fIcon(f) + "<span>" + FORMATS[f].label + "</span>" + CHEV_SVG + "</button>"
-      : '<span class="tag">' + fIcon(f) + FORMATS[f].label + "</span>";
-    var plats = Object.keys(PLATFORMS).map(function (k) {
-      var on = (p.platforms || []).indexOf(k) >= 0;
-      return w
-        ? '<button type="button" class="tog tpl" data-act="tplat" data-id="' + id + '" data-v="' + k + '" aria-pressed="' + on + '" title="' +
-          PLATFORMS[k] + '">' + PLAT_ABBR[k] + "</button>"
-        : on ? '<span class="pl">' + PLAT_ABBR[k] + "</span>" : "";
-    }).join("");
+      ? '<button class="tcell tbtn" type="button" data-act="tfmtmenu" data-id="' + id + '" aria-haspopup="menu" aria-expanded="false" aria-label="Formato: ' +
+        FORMATS[f].label + '">' + fmtTag + "</button>"
+      : fmtTag;
+    var pl = platAbbr(p);
+    var plats = w
+      ? '<button class="tcell tbtn" type="button" data-act="tplatmenu" data-id="' + id + '" aria-haspopup="menu" aria-expanded="false" aria-label="Redes">' +
+        (pl ? esc(pl) : '<span class="mut">–</span>') + "</button>"
+      : '<span class="tcell">' + (pl ? esc(pl) : "–") + "</span>";
     var shoot = '<button class="ck" type="button" role="checkbox" aria-checked="' + !!p.shoot + '" data-act="tshoot" data-id="' + id +
       '" aria-label="En la pauta"' + (w ? "" : " disabled") + ">" + CHECK_SVG + "</button>";
     var dh = driveHref(p.drive);
-    return '<tr class="f-' + esc(p.format) + (p.status === "publicado" ? " pub" : "") + '">' +
+    return '<tr class="trow f-' + esc(p.format) + (p.status === "publicado" ? " pub" : "") + '">' +
+      '<td class="tc-t"><div class="tc-tw">' + title + colabTag(p, true) + "</div></td>" +
       '<td class="tc-dt">' + dt + "</td>" +
-      '<td class="tc-t"><div class="tc-tw">' + title + '<a class="topen" href="#post-' + id + '" title="Abrir el post" aria-label="Abrir el post">↗</a>' +
-      colabTag(p, true) + "</div></td>" +
       '<td class="tc-f">' + fmt + "</td>" +
-      '<td class="tc-p"><div class="tc-pw">' + plats + "</div></td>" +
+      '<td class="tc-p">' + plats + "</td>" +
       '<td class="tc-s">' + shoot + "</td>" +
       '<td class="tc-d">' + (dh ? '<a class="tdrive" href="' + esc(dh) + '" target="_blank" rel="noopener noreferrer" title="Abrir la carpeta de Drive">' +
         DRIVE_SVG + "</a>" : '<span class="mut">–</span>') + "</td>" +
@@ -1089,6 +1093,47 @@
       (S.canWrite ? '<button class="btn ghost sm" type="button" data-act="add" data-date="' + first + '">+ Post</button>' : "") +
       "</span></div>";
   }
+  /** Los grupos de la Lista: [{ id, head, items, pub?, vacio? }] en orden. */
+  function listGroups(open, pub) {
+    var gs = [], nowYm = todayStr().slice(0, 7);
+    var pubG = pub.length ? { id: "pub", pub: true, items: pub } : null;
+    if (S.lgroup === "estado") {
+      STATUS_ORDER.forEach(function (k) {
+        if (k === "publicado") return;
+        var g = open.filter(function (p) {
+          return (STATUS[p.status] ? p.status : "idea") === k;
+        });
+        if (g.length) {
+          gs.push({ id: "st-" + k, items: g, head: '<div class="lm-head"><h2 class="lm-st">' + stPill(k) + '</h2><p class="lm-sub">' + plural(g.length, "post", "posts") + "</p></div>" });
+        }
+      });
+      if (pubG) gs.push(pubG);
+      return gs;
+    }
+    if (pubG) gs.push(pubG);
+    var months = {};
+    open.forEach(function (p) {
+      if (p.date) (months[p.date.slice(0, 7)] = months[p.date.slice(0, 7)] || []).push(p);
+    });
+    // El mes actual y el siguiente siempre aparecen (para crear posts ahí)
+    var nx = new Date(+nowYm.slice(0, 4), +nowYm.slice(5, 7), 1);
+    months[nowYm] = months[nowYm] || [];
+    months[monthKey(nx.getFullYear(), nx.getMonth())] = months[monthKey(nx.getFullYear(), nx.getMonth())] || [];
+    Object.keys(months).sort().forEach(function (ym) {
+      gs.push({ id: "lm-" + ym, items: months[ym], head: monthHead(ym), vacio: "Nada pendiente este mes" + (activeFilters() ? " con estos filtros" : "") + "." });
+    });
+    var undated = open.filter(function (p) {
+      return !p.date;
+    });
+    if (undated.length) {
+      gs.push({ id: "sinfecha", items: undated, head: '<div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length + "</p></div>" });
+    }
+    return gs;
+  }
+  function pubToggle(n) {
+    return '<button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' + CHEV_SVG + "<span>" + stIcon("publicado") +
+      plural(n, "publicado", "publicados") + "</span></button>";
+  }
   function viewLista() {
     var h = notices() + filters(false, true);
     if (!S.loaded.posts && !S.posts.size) {
@@ -1103,74 +1148,46 @@
     var vis = allPosts().filter(function (p) {
       return passes(p, true);
     }).sort(lsorter);
-    var pub = vis.filter(function (p) {
-      return p.status === "publicado";
-    });
-    var open = vis.filter(function (p) {
+    var groups = listGroups(vis.filter(function (p) {
       return p.status !== "publicado";
-    });
-    var nowYm = todayStr().slice(0, 7);
-    function pubBlock() {
-      if (!pub.length) return "";
-      var b = '<section class="lm-pub"><button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' +
-        CHEV_SVG + "<span>" + stIcon("publicado") + plural(pub.length, "publicado", "publicados") + "</span></button>";
-      if (S.pubOpen) {
-        if (S.lgroup === "mes") {
-          var pm = {};
-          pub.forEach(function (p) {
-            var k = p.date ? p.date.slice(0, 7) : "";
-            (pm[k] = pm[k] || []).push(p);
-          });
-          Object.keys(pm).sort().reverse().forEach(function (k) {
-            b += '<div class="lm-pubm"><h3 class="day-h">' + (k ? MONTHS[+k.slice(5, 7) - 1] + " " + k.slice(0, 4) : "Sin fecha") +
-              " <span>· " + pm[k].length + "</span></h3>" + itemsHtml(pm[k], detalle) + "</div>";
-          });
-        } else b += '<div class="lm-pubm">' + itemsHtml(pub, detalle) + "</div>";
-      }
-      return b + "</section>";
-    }
-    if (S.lgroup === "estado") {
-      Object.keys(STATUS).forEach(function (k) {
-        if (k === "publicado") return;
-        var g = open.filter(function (p) {
-          return (STATUS[p.status] ? p.status : "idea") === k;
-        });
-        if (!g.length) return;
-        h += '<section class="lm"><div class="lm-head"><h2 class="lm-st">' + stPill(k) + "</h2>" +
-          '<p class="lm-sub">' + plural(g.length, "post", "posts") + "</p></div>" + itemsHtml(g, detalle) + "</section>";
+    }), vis.filter(function (p) {
+      return p.status === "publicado";
+    }));
+    if (detalle) {
+      // Una sola tabla: el encabezado arriba (fijo) y cada grupo como una fila de título
+      h += '<div class="ltable-wrap"><table class="ltable">' + lthead();
+      groups.forEach(function (g) {
+        h += '<tbody class="lg' + (g.pub ? " lg-pub" : "") + '" id="' + g.id + '"><tr class="lg-h"><td colspan="' + LCOLS.length + '">' +
+          (g.pub ? pubToggle(g.items.length) : g.head) + "</td></tr>";
+        if (!g.pub || S.pubOpen) h += g.items.map(trow).join("");
+        if (!g.items.length && g.vacio) h += '<tr class="lg-empty"><td colspan="' + LCOLS.length + '">' + g.vacio + "</td></tr>";
+        h += "</tbody>";
       });
-      h += pubBlock();
+      h += "</table></div>";
     } else {
-      h += pubBlock();
-      var months = {};
-      open.forEach(function (p) {
-        if (p.date) (months[p.date.slice(0, 7)] = months[p.date.slice(0, 7)] || []).push(p);
+      groups.forEach(function (g) {
+        var rows = '<div class="rows">' + g.items.map(function (p) {
+          return row(p);
+        }).join("") + "</div>";
+        if (g.pub) {
+          h += '<section class="lm-pub">' + pubToggle(g.items.length) + (S.pubOpen ? '<div class="lm-pubm">' + rows + "</div>" : "") + "</section>";
+        } else {
+          h += '<section class="lm" id="' + g.id + '">' + g.head + (g.items.length ? rows : '<p class="lm-empty">' + (g.vacio || "") + "</p>") + "</section>";
+        }
       });
-      // El mes actual y el siguiente siempre aparecen (para crear posts ahí)
-      var nx = new Date(+nowYm.slice(0, 4), +nowYm.slice(5, 7), 1);
-      months[nowYm] = months[nowYm] || [];
-      months[monthKey(nx.getFullYear(), nx.getMonth())] = months[monthKey(nx.getFullYear(), nx.getMonth())] || [];
-      Object.keys(months).sort().forEach(function (ym) {
-        var it = months[ym];
-        h += '<section class="lm" id="lm-' + ym + '">' + monthHead(ym) +
-          (it.length ? itemsHtml(it, detalle) : '<p class="lm-empty">Nada pendiente este mes' + (activeFilters() ? " con estos filtros" : "") + ".</p>") +
-          "</section>";
-      });
-      var undated = open.filter(function (p) {
-        return !p.date;
-      });
-      if (undated.length) {
-        h += '<section class="lm"><div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length +
-          "</p></div>" + itemsHtml(undated, detalle) + "</section>";
-      }
     }
     main.innerHTML = h;
     if (detalle) paintDT();
+    var ti = S.tEdit && document.getElementById("t-title-" + S.tEdit);
+    if (ti && document.activeElement !== ti) {
+      ti.focus();
+      ti.select();
+    }
     if (S.lmScroll) {
       S.lmScroll = false;
-      var sec = S.lgroup === "mes" && document.getElementById("lm-" + nowYm);
+      var sec = S.lgroup === "mes" && document.getElementById("lm-" + todayStr().slice(0, 7));
       if (sec) {
-        var top = sec.getBoundingClientRect().top + window.scrollY - 12;
+        var top = sec.getBoundingClientRect().top + window.scrollY - (detalle ? 48 : 12);
         setTimeout(function () {
           window.scrollTo(0, top);
         }, 0);
@@ -1178,6 +1195,43 @@
     }
   }
   /* «Objetivos» de un mes: su resumen (tema, objetivos y posts) en una ventana, con un enlace para editarlos. */
+  function platMenuHtml(p) {
+    return Object.keys(PLATFORMS).map(function (k) {
+      return '<button class="mi ck-mi" type="button" role="menuitemcheckbox" aria-checked="' + ((p.platforms || []).indexOf(k) >= 0) +
+        '" data-act="tplatpick" data-id="' + esc(p.id) + '" data-v="' + k + '">' + CHECK_SVG + "<span>" + PLATFORMS[k] + "</span></button>";
+    }).join("");
+  }
+  /** Renombrar en la tabla: Enter o salir del campo termina; Escape deshace. */
+  function endTitleEdit(cancel) {
+    var id = S.tEdit;
+    if (!id) return;
+    S.tEdit = null;
+    var p = S.posts.get(id);
+    if (cancel && p && (p.title || "") !== S.tEditOrig) {
+      p.title = S.tEditOrig;
+      queueSave("posts/" + id, { title: p.title }, 0);
+    } else flushAll();
+    render();
+  }
+  document.addEventListener("keydown", function (e) {
+    if (!S.tEdit || !e.target || e.target.id !== "t-title-" + S.tEdit) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      endTitleEdit(false);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      endTitleEdit(true);
+    }
+  }, true);
+  document.addEventListener("focusout", function (e) {
+    if (S.tEdit && e.target && e.target.id === "t-title-" + S.tEdit) {
+      setTimeout(function () {
+        var ti = document.getElementById("t-title-" + S.tEdit);
+        if (S.tEdit && document.activeElement !== ti) endTitleEdit(false);
+      }, 0);
+    }
+  });
   function closeMonthObj() {
     var o = document.getElementById("moOv");
     if (o) o.remove();
@@ -3688,7 +3742,11 @@
   function paintDT() {
     document.querySelectorAll(".dtbtn").forEach(function (b) {
       var inp = document.getElementById(b.dataset.for), v = inp ? inp.value : "";
-      var t = b.dataset.kind === "date" ? (v ? fmtDateLong(v) : "Sin fecha") : (v ? fmtTime(v) : "Sin hora");
+      var t;
+      if (b.dataset.kind === "datetime") {
+        var tv = (document.getElementById(b.dataset.time) || {}).value || "";
+        t = v ? fmtDateLong(v) + (tv ? " / " + fmtTime(tv) : "") : "Sin fecha";
+      } else t = b.dataset.kind === "date" ? (v ? fmtDateLong(v) : "Sin fecha") : (v ? fmtTime(v) : "Sin hora");
       var sp = b.querySelector("span");
       if (sp.textContent !== t) sp.textContent = t;
       b.classList.toggle("empty", !v);
@@ -3711,8 +3769,8 @@
     if (S.dtPop && S.dtPop.btn === btn) return closeDT();
     closeDT();
     var v = (document.getElementById(btn.dataset.for) || {}).value || "";
-    var base = v && btn.dataset.kind === "date" ? v : todayStr();
-    S.dtPop = { btn: btn, kind: btn.dataset.kind, id: btn.dataset.for, y: +base.slice(0, 4), m: +base.slice(5, 7) - 1 };
+    var base = v && btn.dataset.kind !== "time" ? v : todayStr();
+    S.dtPop = { btn: btn, kind: btn.dataset.kind, id: btn.dataset.for, time: btn.dataset.time, y: +base.slice(0, 4), m: +base.slice(5, 7) - 1 };
     var pop = document.createElement("div");
     pop.id = "dtPop";
     pop.className = "dtpop";
@@ -3767,13 +3825,33 @@
       t.setDate(t.getDate() + 1);
       return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
     })();
+    // Fecha y hora juntas (tabla de la Lista): debajo del calendario, la hora (opcional) y «Listo»
+    var timeRow = "";
+    if (st.kind === "datetime") {
+      var tv = (document.getElementById(st.time) || {}).value || "", topts = [];
+      for (var hh = 0; hh < 24; hh++) {
+        ["00", "30"].forEach(function (mm) {
+          topts.push((hh < 10 ? "0" : "") + hh + ":" + mm);
+        });
+      }
+      if (tv && topts.indexOf(tv) < 0) topts.push(tv), topts.sort();
+      timeRow = '<div class="dt-timerow"><label for="dtTimeSel">Hora <span class="mut">(opcional)</span></label><select id="dtTimeSel" class="in"' +
+        (v ? "" : " disabled") + '><option value="">Sin hora</option>' + topts.map(function (t) {
+          return '<option value="' + t + '"' + (t === tv ? " selected" : "") + ">" + fmtTime(t) + "</option>";
+        }).join("") + "</select></div>";
+    }
     pop.innerHTML = '<div class="dt-head"><button type="button" class="icon-btn" data-act="dtnav" data-v="-1" aria-label="Mes anterior">‹</button><b>' +
       esc(mes.charAt(0).toUpperCase() + mes.slice(1)) + '</b><button type="button" class="icon-btn" data-act="dtnav" data-v="1" aria-label="Mes siguiente">›</button></div>' +
-      '<div class="dt-grid"><i>L</i><i>M</i><i>M</i><i>J</i><i>V</i><i>S</i><i>D</i>' + cells + "</div>" +
+      '<div class="dt-grid"><i>L</i><i>M</i><i>M</i><i>J</i><i>V</i><i>S</i><i>D</i>' + cells + "</div>" + timeRow +
       '<div class="dt-foot"><button type="button" class="btn sm ghost" data-act="dtset" data-v="' + today + '">Hoy</button>' +
       '<button type="button" class="btn sm ghost" data-act="dtset" data-v="' + tomorrow + '">Mañana</button><span class="grow"></span>' +
-      (v ? '<button type="button" class="btn sm ghost" data-act="dtset" data-v="">Quitar</button>' : "") + "</div>";
+      (v ? '<button type="button" class="btn sm ghost" data-act="dtset" data-v="">Quitar</button>' : "") +
+      (st.kind === "datetime" ? '<button type="button" class="btn sm primary" data-act="dtclose">Listo</button>' : "") + "</div>";
   }
+  document.addEventListener("change", function (e) {
+    if (!S.dtPop || !e.target || e.target.id !== "dtTimeSel") return;
+    setDT(S.dtPop.time, e.target.value);
+  });
   document.addEventListener("pointerdown", function (e) {
     if (!S.dtPop) return;
     var pop = document.getElementById("dtPop");
@@ -5029,7 +5107,13 @@
         }
         break;
       case "dtset":
-        if (S.dtPop) {
+        if (S.dtPop && S.dtPop.kind === "datetime") {
+          // Fecha y hora: elegir el día deja el popup abierto para poner la hora; «Quitar» borra las dos
+          if (!el.dataset.v) setDT(S.dtPop.time, "");
+          setDT(S.dtPop.id, el.dataset.v);
+          if (!el.dataset.v) closeDT();
+          else renderDT();
+        } else if (S.dtPop) {
           var dtid = S.dtPop.id, dtb = S.dtPop.btn;
           closeDT();
           setDT(dtid, el.dataset.v);
@@ -5076,8 +5160,48 @@
         break;
       case "lsort":
         S.lsort = el.dataset.v === "formato" ? "formato" : "fecha";
+        S.ldir = "asc";
         setPref("pc_lsort", S.lsort);
+        setPref("pc_ldir", S.ldir);
         render();
+        break;
+      case "lsortby":
+        // Tocar el mismo encabezado invierte el orden
+        if (S.lsort === el.dataset.v) S.ldir = S.ldir === "desc" ? "asc" : "desc";
+        else {
+          S.lsort = el.dataset.v;
+          S.ldir = "asc";
+        }
+        setPref("pc_lsort", S.lsort);
+        setPref("pc_ldir", S.ldir);
+        render();
+        break;
+      case "tedit":
+        p = S.posts.get(el.dataset.id);
+        if (!p || !canW()) break;
+        S.tEdit = p.id;
+        S.tEditOrig = p.title || "";
+        render();
+        break;
+      case "tplatmenu":
+        p = S.posts.get(el.dataset.id);
+        if (!p) break;
+        if (stMenuBtn === el) closeStMenu(false);
+        else openMenu(el, platMenuHtml(p), "acts-menu plat-menu");
+        break;
+      case "tplatpick":
+        p = S.posts.get(el.dataset.id);
+        if (!p || !canW()) break;
+        var mpl = (p.platforms || []).slice(), mpi = mpl.indexOf(el.dataset.v);
+        if (mpi >= 0) mpl.splice(mpi, 1);
+        else mpl.push(el.dataset.v);
+        p.platforms = mpl;
+        queueSave("posts/" + p.id, { platforms: mpl }, 0);
+        if (stMenuEl) stMenuEl.innerHTML = platMenuHtml(p); // el menú sigue abierto (selección múltiple)
+        render();
+        break;
+      case "dtclose":
+        closeDT();
         break;
       case "lview":
         S.lview = el.dataset.v === "detalle" ? "detalle" : "simple";

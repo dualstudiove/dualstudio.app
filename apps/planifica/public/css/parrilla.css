@@ -2143,59 +2143,89 @@
     font-size: 14px;
   }
 
-  /* Lista detallada: tabla editable */
+  /* Lista detallada: una sola tabla (encabezado arriba, fijo; los grupos son filas de título). Las celdas se ven
+     como texto; al pasar el mouse se nota qué se puede editar. */
   .ltable-wrap {
     margin-top: 12px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    overflow: hidden;
   }
   .ltable {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    table-layout: fixed; /* mismas columnas en todas las tablas (cada grupo es una) */
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13.5px;
+    table-layout: fixed;
   }
-  .ltable th:nth-child(1) {
-    width: 205px;
+  .ltable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg);
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .ltable th:nth-child(2) {
+    width: 200px;
   }
   .ltable th:nth-child(3) {
-    width: 135px;
+    width: 125px;
   }
   .ltable th:nth-child(4) {
-    width: 96px;
+    width: 90px;
   }
   .ltable th:nth-child(5) {
-    width: 58px;
+    width: 56px;
   }
   .ltable th:nth-child(6) {
     width: 52px;
   }
   .ltable th:nth-child(7) {
-    width: 158px;
+    width: 156px;
   }
-  .ltable th {
-    text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--ink-3);
-    padding: 9px 10px;
-    border-bottom: 1px solid var(--line);
+  .ltable .th-c {
+    text-align: center;
+  }
+  .th-s {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    background: none;
+    padding: 2px 4px;
+    margin-left: -4px;
+    border-radius: 6px;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .th-s:hover {
     background: var(--surface-2);
-    white-space: nowrap;
+    color: var(--ink);
+  }
+  .th-s.on {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .th-ar {
+    font-size: 11px;
+    opacity: .35;
+  }
+  .th-s.on .th-ar,
+  .th-s:hover .th-ar {
+    opacity: 1;
   }
   .ltable td {
-    padding: 6px 10px;
-    border-top: 1px solid var(--line-2, var(--line));
+    padding: 4px 8px;
+    height: 44px;
+    border-bottom: 1px solid var(--line-2, var(--line));
     vertical-align: middle;
+    background: var(--surface);
   }
-  .ltable tr:first-child td {
-    border-top: 0;
-  }
-  .ltable tr:hover td {
+  .ltable tr.trow:hover td {
     background: var(--surface-2);
   }
   .ltable tr.pub td {
@@ -2204,71 +2234,128 @@
   .ltable tr.pub:hover td {
     opacity: 1;
   }
+  /* Grupos: el título del mes o del estado como fila */
+  .ltable .lg-h td {
+    background: var(--bg);
+    border-bottom: 0;
+    height: auto;
+    padding: 26px 0 8px;
+  }
+  .ltable .lg:first-of-type .lg-h td {
+    padding-top: 12px;
+  }
+  .ltable .lg-h .lm-head {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin: 0;
+  }
+  .ltable .lg-pub .lg-h td {
+    padding: 12px 0 6px;
+  }
+  .ltable .lg-empty td {
+    color: var(--ink-3);
+    background: transparent;
+    height: auto;
+    padding: 6px 0 4px;
+    border-bottom: 0;
+  }
+  /* Título: abre el post; el lápiz (al pasar el mouse) lo renombra ahí */
   .tc-t {
     min-width: 0;
   }
   .tc-tw {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    min-width: 0;
+  }
+  .tlink {
+    color: var(--ink);
+    font-weight: 600;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .tlink:hover {
+    text-decoration: underline;
+  }
+  .tedit {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--ink-2);
+    cursor: pointer;
+    opacity: 0;
+  }
+  .tedit svg {
+    width: 14px;
+    height: 14px;
+  }
+  .trow:hover .tedit,
+  .tedit:focus-visible {
+    opacity: 1;
+  }
+  .tedit:hover {
+    color: var(--ink);
+    border-color: var(--ink-3);
   }
   .tin {
     flex: 1;
     min-width: 0;
-    border: 1px solid transparent;
-    background: transparent;
+    border: 1px solid var(--accent);
+    background: var(--surface);
     border-radius: 6px;
     padding: 5px 7px;
     font: inherit;
-    font-size: 14px;
     font-weight: 600;
     color: var(--ink);
-  }
-  .tin:hover {
-    border-color: var(--line);
-  }
-  .tin:focus {
-    border-color: var(--accent);
-    background: var(--surface);
     outline: none;
   }
-  .topen {
-    color: var(--ink-3);
-    text-decoration: none;
-    padding: 2px 6px;
+  /* Celdas editables: texto plano; con el mouse encima, un fondo sutil */
+  .tcell {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 0;
     border-radius: 6px;
-    opacity: 0;
-  }
-  .ltable tr:hover .topen,
-  .topen:focus-visible {
-    opacity: 1;
-  }
-  .topen:hover {
-    background: var(--line-2, var(--line));
-    color: var(--ink);
-  }
-  .dtf.tdt {
-    flex-wrap: nowrap;
-    gap: 2px;
-  }
-  .tdt .dtbtn {
-    padding: 4px 6px;
-    font-size: 13px;
     background: transparent;
-    border-color: transparent;
-  }
-  .tdt .dtbtn:hover {
-    border-color: var(--line);
-  }
-  .tc-f .fmtsel,
-  .tc-p .tog {
-    font-size: 12px;
-    padding: 3px 9px;
+    padding: 4px 6px;
+    margin-left: -6px;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .tc-pw {
-    display: flex;
-    gap: 4px;
+  span.tcell {
+    cursor: default;
+  }
+  button.tcell:hover,
+  button.tcell[aria-expanded="true"] {
+    background: var(--line-2, var(--line));
+  }
+  .ltable .dtbtn.tcell {
+    border: 0;
+    font-size: 13.5px;
+    font-weight: 400;
+    background: transparent;
+  }
+  .ltable .dtbtn.tcell:hover {
+    background: var(--line-2, var(--line));
+  }
+  .ltable .dtbtn.tcell.empty {
+    color: var(--ink-3);
+  }
+  .tfmt {
+    pointer-events: none;
   }
   .tc-s,
   .tc-d {
@@ -2276,6 +2363,12 @@
   }
   .tc-s .ck {
     margin: 0 auto;
+  }
+  .trow .tc-s .ck[aria-checked="false"] {
+    border-color: var(--line);
+  }
+  .trow:hover .tc-s .ck[aria-checked="false"] {
+    border-color: var(--ink-3);
   }
   .tdrive {
     display: inline-flex;
@@ -2292,6 +2385,34 @@
   }
   .tc-st .st {
     white-space: nowrap;
+  }
+  /* Ordenar: solo en la vista simplificada (en la detallada se ordena con los encabezados) */
+  @media (min-width:861px) {
+    .toolbar .lctl.only-simple {
+      display: none;
+    }
+  }
+  .plat-menu {
+    min-width: 170px;
+  }
+  /* Popup de fecha y hora: la hora debajo del calendario */
+  .dt-timerow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid var(--line-2, var(--line));
+    padding-top: 8px;
+    font-size: 13px;
+  }
+  .dt-timerow label {
+    font-weight: 600;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .dt-timerow .in {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 13px;
   }
 
   /* Modal «Objetivos» del mes */
