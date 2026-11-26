@@ -2116,9 +2116,188 @@
     padding: 4px 11px;
     font-size: 13px;
   }
-  /* Lista «Todos»: todos los meses seguidos */
-  .toolbar .lmode {
+  /* Lista: controles (agrupar, ordenar, vista) */
+  .lctl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lctl-l {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+  }
+  .lctl .seg button {
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+  .toolbar .lctl.lview {
     margin-left: auto;
+  }
+  @media (max-width:860px) {
+    .toolbar .lctl.lview {
+      display: none;
+    }
+  }
+  .lm-st .st {
+    font-size: 14px;
+  }
+
+  /* Lista detallada: tabla editable */
+  .ltable-wrap {
+    margin-top: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .ltable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    table-layout: fixed; /* mismas columnas en todas las tablas (cada grupo es una) */
+  }
+  .ltable th:nth-child(1) {
+    width: 205px;
+  }
+  .ltable th:nth-child(3) {
+    width: 135px;
+  }
+  .ltable th:nth-child(4) {
+    width: 96px;
+  }
+  .ltable th:nth-child(5) {
+    width: 58px;
+  }
+  .ltable th:nth-child(6) {
+    width: 52px;
+  }
+  .ltable th:nth-child(7) {
+    width: 158px;
+  }
+  .ltable th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+  .ltable td {
+    padding: 6px 10px;
+    border-top: 1px solid var(--line-2, var(--line));
+    vertical-align: middle;
+  }
+  .ltable tr:first-child td {
+    border-top: 0;
+  }
+  .ltable tr:hover td {
+    background: var(--surface-2);
+  }
+  .ltable tr.pub td {
+    opacity: .6;
+  }
+  .ltable tr.pub:hover td {
+    opacity: 1;
+  }
+  .tc-t {
+    min-width: 0;
+  }
+  .tc-tw {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tin {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    padding: 5px 7px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .tin:hover {
+    border-color: var(--line);
+  }
+  .tin:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    outline: none;
+  }
+  .topen {
+    color: var(--ink-3);
+    text-decoration: none;
+    padding: 2px 6px;
+    border-radius: 6px;
+    opacity: 0;
+  }
+  .ltable tr:hover .topen,
+  .topen:focus-visible {
+    opacity: 1;
+  }
+  .topen:hover {
+    background: var(--line-2, var(--line));
+    color: var(--ink);
+  }
+  .dtf.tdt {
+    flex-wrap: nowrap;
+    gap: 2px;
+  }
+  .tdt .dtbtn {
+    padding: 4px 6px;
+    font-size: 13px;
+    background: transparent;
+    border-color: transparent;
+  }
+  .tdt .dtbtn:hover {
+    border-color: var(--line);
+  }
+  .tc-f .fmtsel,
+  .tc-p .tog {
+    font-size: 12px;
+    padding: 3px 9px;
+    white-space: nowrap;
+  }
+  .tc-pw {
+    display: flex;
+    gap: 4px;
+  }
+  .tc-s,
+  .tc-d {
+    text-align: center;
+  }
+  .tc-s .ck {
+    margin: 0 auto;
+  }
+  .tdrive {
+    display: inline-flex;
+    color: var(--accent);
+    padding: 4px;
+    border-radius: 6px;
+  }
+  .tdrive svg {
+    width: 16px;
+    height: 16px;
+  }
+  .tdrive:hover {
+    background: var(--accent-bg);
+  }
+  .tc-st .st {
+    white-space: nowrap;
+  }
+
+  /* Modal «Objetivos» del mes */
+  .sheet.mo .hd {
+    border: 0;
+    margin: 0;
   }
   .lm {
     margin-top: 28px;

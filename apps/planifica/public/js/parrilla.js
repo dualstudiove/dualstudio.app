@@ -264,6 +264,19 @@
   }
 
   /* ---------- State ---------- */
+  function pref(k, opts) {
+    try {
+      var v = localStorage.getItem(k);
+      return opts.indexOf(v) >= 0 ? v : opts[0];
+    } catch (e) {
+      return opts[0];
+    }
+  }
+  function setPref(k, v) {
+    try {
+      localStorage.setItem(k, v);
+    } catch (e) {}
+  }
   var S = {
     posts: new Map(),
     goals: new Map(),
@@ -292,15 +305,11 @@
     assets: null,
     refBusy: false,
     needsRender: false,
-    lgroup: "fecha",
-    // Lista: «mes» (un mes con flechas) o «todos» (todos los meses seguidos)
-    lmode: (function () {
-      try {
-        return localStorage.getItem("pc_lmode") === "todos" ? "todos" : "mes";
-      } catch (e) {
-        return "mes";
-      }
-    })(),
+    // Lista (siempre continua): agrupar por mes o estado, ordenar por fecha o formato, vista simplificada (tarjetas)
+    // o detallada (tabla, solo en computadora). Se recuerdan en el navegador.
+    lgroup: pref("pc_lgroup", ["mes", "estado"]),
+    lsort: pref("pc_lsort", ["fecha", "formato"]),
+    lview: pref("pc_lview", ["simple", "detalle"]),
     pubOpen: false,
     mdel: "",
     mcol: (function () {
@@ -612,8 +621,12 @@
     return "<li" + (((g && g.objDone) || []).indexOf(t) >= 0 ? ' class="od"' : "") + ">" + esc(t) +
       "</li>";
   }
-  function brief() {
-    var y = S.cy, m = S.cm, qn = Math.floor(m / 3) + 1;
+  function brief(y, m) {
+    if (y == null) {
+      y = S.cy;
+      m = S.cm;
+    }
+    var qn = Math.floor(m / 3) + 1;
     var g = S.goals.get("m-" + monthKey(y, m)) || {}, qg = S.goals.get("q-" + y + "-" + qn) || {};
     var st = stats(y, m), objs = lines(g.objectives), tgt = Number(g.postTarget) || 0;
     var def = '<p class="hg-empty">Sin definir. <a class="lnk" href="#objetivos">Definir</a></p>';
@@ -677,18 +690,21 @@
     if (n) {
       h += '<button class="btn ghost sm" type="button" data-act="clearfilters">Limpiar</button>';
     }
-    if (!(isList && S.lmode === "todos")) {
+    if (!isList) {
       h += '<button class="tog eye" type="button" data-act="togpub" aria-pressed="' + S.showPub +
         '" title="Mostrar u ocultar los posts publicados">' + (S.showPub ? EYE_SVG : EYEOFF_SVG) +
         "<span>Publicados</span></button>";
     }
-    if (isList && S.lmode === "mes" && S.lgroup === "estado") h += '<span class="hits">Agrupado por estado</span>';
     if (isList) {
-      h += '<div class="seg lmode" role="group" aria-label="Ver la lista">' +
-        [["mes", "Por mes"], ["todos", "Todos"]].map(function (x) {
-          return '<button type="button" data-act="lmode" data-v="' + x[0] + '" aria-pressed="' + (S.lmode === x[0]) + '">' +
-            x[1] + "</button>";
-        }).join("") + "</div>";
+      var seg = function (lbl, act, cur, opts, cls) {
+        return '<div class="lctl' + (cls ? " " + cls : "") + '"><span class="lctl-l">' + lbl + '</span><div class="seg" role="group" aria-label="' + lbl + '">' +
+          opts.map(function (x) {
+            return '<button type="button" data-act="' + act + '" data-v="' + x[0] + '" aria-pressed="' + (cur === x[0]) + '">' + x[1] + "</button>";
+          }).join("") + "</div></div>";
+      };
+      h += seg("Agrupar", "lgroup", S.lgroup, [["mes", "Mes"], ["estado", "Estado"]]) +
+        seg("Ordenar", "lsort", S.lsort, [["fecha", "Fecha"], ["formato", "Formato"]]) +
+        seg("Vista", "lview", S.lview, [["simple", "Simplificada"], ["detalle", "Detallada"]], "lview");
     }
     if (legend) {
       h += '<div class="legend">' + Object.keys(STATUS).map(function (k) {
@@ -697,13 +713,7 @@
     }
     h += "</div>";
     if (S.filtersOpen) {
-      h += '<div class="fpanel" id="fpanel">' + (isList && S.lmode === "mes"
-        ? '<div class="fld"><span class="lbl">Agrupar por</span><div class="seg" role="group" aria-label="Agrupar por">' +
-          [["fecha", "Fecha"], ["estado", "Estado"]].map(function (x) {
-            return '<button type="button" data-act="lgroup" data-v="' + x[0] + '" aria-pressed="' +
-              (S.lgroup === x[0]) + '">' + x[1] + "</button>";
-          }).join("") + "</div></div>"
-        : "") +
+      h += '<div class="fpanel" id="fpanel">' +
         '<div class="fld"><label for="fq-plat">Plataforma</label><select id="fq-plat" class="in" data-fsel="plat">' +
         [["all", "Todas"], ["ig", "Instagram"], ["tt", "TikTok"]].map(function (x) {
           return '<option value="' + x[0] + '"' + (f.plat === x[0] ? " selected" : "") + ">" + x[1] + "</option>";
@@ -901,7 +911,8 @@
     if (isShootDefault(v) && !p.shoot) patch.shoot = true;
     Object.assign(p, patch);
     queueSave("posts/" + p.id, patch, 0);
-    paintDetail();
+    if (S.view === "detalle") paintDetail();
+    else render();
   }
   /** Duplicar: la copia queda en Idea, sin fecha ni link, con el contenido y la producción del original. */
   function duplicatePost(p) {
@@ -937,6 +948,10 @@
       closeImp();
       return;
     }
+    if (e.key === "Escape" && S.moOpen) {
+      closeMonthObj();
+      return;
+    }
     if (e.key === "Escape" && S.npOpen) {
       closeNewPost();
       return;
@@ -963,8 +978,14 @@
       closeStMenu(false);
     }
   }, true);
+  var lastMovil = esMovil();
   window.addEventListener("resize", function () {
     closeStMenu(false);
+    var mv = esMovil();
+    if (mv !== lastMovil) {
+      lastMovil = mv;
+      if (S.view === "lista") render();
+    }
   });
   window.addEventListener("scroll", function () {
     closeStMenu(false);
@@ -989,8 +1010,69 @@
   }
 
   /* ---------- Views ---------- */
-  /* Lista «Todos»: todos los meses seguidos. Cada mes con su tema y «Posts X de Y» (y un enlace a sus objetivos);
-     lo publicado va recogido arriba; al entrar se ubica en el mes actual. */
+  /* ---------- Lista: siempre continua (todos los meses) ----------
+     Agrupar por mes (con su cabecera: tema, posts, Objetivos y + Post) o por estado; ordenar por fecha o formato (lo
+     mismo para todos los grupos). Lo publicado va recogido; las ideas sin fecha, al final. Dos formas: simplificada
+     (tarjetas) y detallada (tabla editable; solo en computadora). */
+  var MOBILE_Q = "(max-width: 860px)";
+  function esMovil() {
+    return !!(window.matchMedia && window.matchMedia(MOBILE_Q).matches);
+  }
+  function lsorter(a, b) {
+    if (S.lsort === "formato") {
+      var fa = FORMAT_ORDER.indexOf(a.format), fb = FORMAT_ORDER.indexOf(b.format);
+      if (fa !== fb) return (fa < 0 ? 99 : fa) - (fb < 0 ? 99 : fb);
+    }
+    return cmp(a, b);
+  }
+  function itemsHtml(list, detalle) {
+    if (!detalle) {
+      return '<div class="rows">' + list.map(function (p) {
+        return row(p);
+      }).join("") + "</div>";
+    }
+    return '<div class="ltable-wrap"><table class="ltable"><thead><tr><th>Fecha</th><th>Título</th><th>Formato</th><th>Redes</th>' +
+      '<th title="Incluir en la pauta">Pauta</th><th>Drive</th><th>Estado</th></tr></thead><tbody>' +
+      list.map(trow).join("") + "</tbody></table></div>";
+  }
+  /** Una fila de la tabla: todo se edita ahí mismo (título, fecha y hora, formato, redes, pauta y estado). */
+  function trow(p) {
+    var w = S.canWrite, id = esc(p.id), f = FORMATS[p.format] ? p.format : "reel";
+    var title = w
+      ? '<input class="tin" id="t-title-' + id + '" data-tf="title" data-id="' + id + '" value="' + esc(p.title || "") +
+        '" placeholder="Sin título" autocomplete="off" aria-label="Título">'
+      : "<span>" + (p.title ? esc(p.title) : "<em>Sin título</em>") + "</span>";
+    var dt = w
+      ? '<div class="dtf tdt"><input type="hidden" id="t-date-' + id + '" data-tf="date" data-id="' + id + '" value="' + esc(p.date || "") + '">' +
+        '<input type="hidden" id="t-time-' + id + '" data-tf="time" data-id="' + id + '" value="' + esc(p.time || "") + '">' +
+        '<button type="button" class="dtbtn" data-act="dtopen" data-kind="date" data-for="t-date-' + id + '" aria-haspopup="dialog"><span></span></button>' +
+        '<button type="button" class="dtbtn" data-act="dtopen" data-kind="time" data-for="t-time-' + id + '" aria-haspopup="dialog"><span></span></button></div>'
+      : esc(p.date ? cap(fmtLong(p.date)) : "Sin fecha") + (p.time ? " · " + esc(p.time) : "");
+    var fmt = w
+      ? '<button class="tog fmtbtn fmtsel f-' + f + '" type="button" aria-pressed="true" data-act="tfmtmenu" data-id="' + id +
+        '" aria-haspopup="menu" aria-expanded="false">' + fIcon(f) + "<span>" + FORMATS[f].label + "</span>" + CHEV_SVG + "</button>"
+      : '<span class="tag">' + fIcon(f) + FORMATS[f].label + "</span>";
+    var plats = Object.keys(PLATFORMS).map(function (k) {
+      var on = (p.platforms || []).indexOf(k) >= 0;
+      return w
+        ? '<button type="button" class="tog tpl" data-act="tplat" data-id="' + id + '" data-v="' + k + '" aria-pressed="' + on + '" title="' +
+          PLATFORMS[k] + '">' + PLAT_ABBR[k] + "</button>"
+        : on ? '<span class="pl">' + PLAT_ABBR[k] + "</span>" : "";
+    }).join("");
+    var shoot = '<button class="ck" type="button" role="checkbox" aria-checked="' + !!p.shoot + '" data-act="tshoot" data-id="' + id +
+      '" aria-label="En la pauta"' + (w ? "" : " disabled") + ">" + CHECK_SVG + "</button>";
+    var dh = driveHref(p.drive);
+    return '<tr class="f-' + esc(p.format) + (p.status === "publicado" ? " pub" : "") + '">' +
+      '<td class="tc-dt">' + dt + "</td>" +
+      '<td class="tc-t"><div class="tc-tw">' + title + '<a class="topen" href="#post-' + id + '" title="Abrir el post" aria-label="Abrir el post">↗</a>' +
+      colabTag(p, true) + "</div></td>" +
+      '<td class="tc-f">' + fmt + "</td>" +
+      '<td class="tc-p"><div class="tc-pw">' + plats + "</div></td>" +
+      '<td class="tc-s">' + shoot + "</td>" +
+      '<td class="tc-d">' + (dh ? '<a class="tdrive" href="' + esc(dh) + '" target="_blank" rel="noopener noreferrer" title="Abrir la carpeta de Drive">' +
+        DRIVE_SVG + "</a>" : '<span class="mut">–</span>') + "</td>" +
+      '<td class="tc-st">' + stSelect(p) + "</td></tr>";
+  }
   function monthHead(ym) {
     var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
     var g = S.goals.get("m-" + ym) || {}, st = stats(y, m), tgt = Number(g.postTarget) || 0;
@@ -1003,7 +1085,7 @@
       (S.canWrite ? '<button class="btn ghost sm" type="button" data-act="add" data-date="' + first + '">+ Post</button>' : "") +
       "</span></div>";
   }
-  function viewListaTodos() {
+  function viewLista() {
     var h = notices() + filters(false, true);
     if (!S.loaded.posts && !S.posts.size) {
       main.innerHTML = h + loadingBlock();
@@ -1013,62 +1095,76 @@
       main.innerHTML = h + emptyAll();
       return;
     }
+    var detalle = S.lview === "detalle" && !esMovil();
     var vis = allPosts().filter(function (p) {
       return passes(p, true);
-    }).sort(cmp);
+    }).sort(lsorter);
     var pub = vis.filter(function (p) {
       return p.status === "publicado";
     });
     var open = vis.filter(function (p) {
       return p.status !== "publicado";
     });
-    var nowYm = todayStr().slice(0, 7), months = {};
-    open.forEach(function (p) {
-      if (p.date) (months[p.date.slice(0, 7)] = months[p.date.slice(0, 7)] || []).push(p);
-    });
-    // El mes actual y el siguiente siempre aparecen (para crear posts ahí)
-    var nx = new Date(+nowYm.slice(0, 4), +nowYm.slice(5, 7), 1);
-    months[nowYm] = months[nowYm] || [];
-    months[monthKey(nx.getFullYear(), nx.getMonth())] = months[monthKey(nx.getFullYear(), nx.getMonth())] || [];
-    if (pub.length) {
-      var pm = {};
-      pub.forEach(function (p) {
-        var k = p.date ? p.date.slice(0, 7) : "";
-        (pm[k] = pm[k] || []).push(p);
-      });
-      h += '<section class="lm-pub"><button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' +
+    var nowYm = todayStr().slice(0, 7);
+    function pubBlock() {
+      if (!pub.length) return "";
+      var b = '<section class="lm-pub"><button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' +
         CHEV_SVG + "<span>" + stIcon("publicado") + plural(pub.length, "publicado", "publicados") + "</span></button>";
       if (S.pubOpen) {
-        Object.keys(pm).sort().reverse().forEach(function (k) {
-          h += '<div class="lm-pubm"><h3 class="day-h">' + (k ? MONTHS[+k.slice(5, 7) - 1] + " " + k.slice(0, 4) : "Sin fecha") +
-            " <span>· " + pm[k].length + '</span></h3><div class="rows">' + pm[k].slice().reverse().map(function (p) {
-              return row(p);
-            }).join("") + "</div></div>";
-        });
+        if (S.lgroup === "mes") {
+          var pm = {};
+          pub.forEach(function (p) {
+            var k = p.date ? p.date.slice(0, 7) : "";
+            (pm[k] = pm[k] || []).push(p);
+          });
+          Object.keys(pm).sort().reverse().forEach(function (k) {
+            b += '<div class="lm-pubm"><h3 class="day-h">' + (k ? MONTHS[+k.slice(5, 7) - 1] + " " + k.slice(0, 4) : "Sin fecha") +
+              " <span>· " + pm[k].length + "</span></h3>" + itemsHtml(pm[k], detalle) + "</div>";
+          });
+        } else b += '<div class="lm-pubm">' + itemsHtml(pub, detalle) + "</div>";
       }
-      h += "</section>";
+      return b + "</section>";
     }
-    Object.keys(months).sort().forEach(function (ym) {
-      var it = months[ym];
-      h += '<section class="lm" id="lm-' + ym + '">' + monthHead(ym) +
-        (it.length ? '<div class="rows">' + it.map(function (p) {
-          return row(p);
-        }).join("") + "</div>" : '<p class="lm-empty">Nada pendiente este mes' + (activeFilters() ? " con estos filtros" : "") + ".</p>") +
-        "</section>";
-    });
-    var undated = open.filter(function (p) {
-      return !p.date;
-    });
-    if (undated.length) {
-      h += '<section class="lm"><div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length +
-        '</p></div><div class="rows">' + undated.map(function (p) {
-          return row(p);
-        }).join("") + "</div></section>";
+    if (S.lgroup === "estado") {
+      Object.keys(STATUS).forEach(function (k) {
+        if (k === "publicado") return;
+        var g = open.filter(function (p) {
+          return (STATUS[p.status] ? p.status : "idea") === k;
+        });
+        if (!g.length) return;
+        h += '<section class="lm"><div class="lm-head"><h2 class="lm-st">' + stPill(k) + "</h2>" +
+          '<p class="lm-sub">' + plural(g.length, "post", "posts") + "</p></div>" + itemsHtml(g, detalle) + "</section>";
+      });
+      h += pubBlock();
+    } else {
+      h += pubBlock();
+      var months = {};
+      open.forEach(function (p) {
+        if (p.date) (months[p.date.slice(0, 7)] = months[p.date.slice(0, 7)] || []).push(p);
+      });
+      // El mes actual y el siguiente siempre aparecen (para crear posts ahí)
+      var nx = new Date(+nowYm.slice(0, 4), +nowYm.slice(5, 7), 1);
+      months[nowYm] = months[nowYm] || [];
+      months[monthKey(nx.getFullYear(), nx.getMonth())] = months[monthKey(nx.getFullYear(), nx.getMonth())] || [];
+      Object.keys(months).sort().forEach(function (ym) {
+        var it = months[ym];
+        h += '<section class="lm" id="lm-' + ym + '">' + monthHead(ym) +
+          (it.length ? itemsHtml(it, detalle) : '<p class="lm-empty">Nada pendiente este mes' + (activeFilters() ? " con estos filtros" : "") + ".</p>") +
+          "</section>";
+      });
+      var undated = open.filter(function (p) {
+        return !p.date;
+      });
+      if (undated.length) {
+        h += '<section class="lm"><div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length +
+          "</p></div>" + itemsHtml(undated, detalle) + "</section>";
+      }
     }
     main.innerHTML = h;
+    if (detalle) paintDT();
     if (S.lmScroll) {
       S.lmScroll = false;
-      var sec = document.getElementById("lm-" + nowYm);
+      var sec = S.lgroup === "mes" && document.getElementById("lm-" + nowYm);
       if (sec) {
         var top = sec.getBoundingClientRect().top + window.scrollY - 12;
         setTimeout(function () {
@@ -1077,59 +1173,28 @@
       }
     }
   }
-  function viewLista() {
-    if (S.lmode === "todos") return viewListaTodos();
-    var y = S.cy, m = S.cm;
-    var items = allPosts().filter(function (p) {
-      return inMonth(p, y, m) && passes(p);
-    }).sort(cmp);
-    var undated = allPosts().filter(function (p) {
-      return !p.date && passes(p);
-    }).sort(cmp);
-    var h = notices() + monthBar() + brief() + filters(false, true);
-    if (!S.loaded.posts && !S.posts.size) h += loadingBlock();
-    else if (!S.posts.size) h += emptyAll();
-    else {
-      if (!items.length) {
-        h += '<div class="empty"><h3>Nada en ' + MONTHS[m].toLowerCase() +
-          (activeFilters() ? " con estos filtros" : "") +
-          '</h3><p>Crea un post o muévete a otro mes.</p><div class="acts"><button class="btn primary" type="button" data-act="new">+ Nuevo post</button></div></div>';
-      }
-      var cur = null;
-      if (S.lgroup === "estado") {
-        var all2 = items.concat(undated);
-        Object.keys(STATUS).forEach(function (k) {
-          var g = all2.filter(function (p) {
-            return (STATUS[p.status] ? p.status : "idea") === k;
-          });
-          if (g.length) {
-            h += '<section class="day-group"><h3 class="day-h">' + STATUS[k] + " <span>· " +
-              g.length + '</span></h3><div class="rows">' + g.map(function (p) {
-                return row(p);
-              }).join("") + "</div></section>";
-          }
-        });
-        items = [];
-        undated = [];
-      }
-      items.forEach(function (p) {
-        if (p.date !== cur) {
-          if (cur !== null) h += "</div></section>";
-          cur = p.date;
-          h += '<section class="day-group"><h3 class="day-h">' + cap(fmtLong(p.date)) +
-            (p.date === todayStr() ? " <span>· hoy</span>" : "") + '</h3><div class="rows">';
-        }
-        h += row(p);
-      });
-      if (cur !== null) h += "</div></section>";
-      if (undated.length) {
-        h += '<section class="day-group"><h3 class="day-h">Sin fecha <span>· banco de ideas · ' +
-          undated.length + '</span></h3><div class="rows">' + undated.map(function (p) {
-            return row(p);
-          }).join("") + "</div></section>";
-      }
-    }
-    main.innerHTML = h;
+  /* «Objetivos» de un mes: su resumen (tema, objetivos y posts) en una ventana, con un enlace para editarlos. */
+  function closeMonthObj() {
+    var o = document.getElementById("moOv");
+    if (o) o.remove();
+    S.moOpen = null;
+  }
+  function openMonthObj(ym) {
+    closeMonthObj();
+    var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
+    S.moOpen = ym;
+    var ov = document.createElement("div");
+    ov.id = "moOv";
+    ov.className = "sheet-ov";
+    ov.innerHTML = '<div class="sheet mo" role="dialog" aria-modal="true" aria-labelledby="moT"><h2 id="moT">' + MONTHS[m] + " " + y + "</h2>" +
+      brief(y, m) + '<div class="acts"><span class="grow"></span><button class="btn" type="button" data-act="moclose">Cerrar</button>' +
+      '<button class="btn primary" type="button" data-act="moedit" data-v="' + ym + '">Editar objetivos</button></div></div>';
+    ov.addEventListener("mousedown", function (e) {
+      if (e.target === ov) closeMonthObj();
+    });
+    document.body.appendChild(ov);
+    var b = ov.querySelector('[data-act="moedit"]');
+    if (b) b.focus();
   }
   function chip(p) {
     var pub = p.status === "publicado",
@@ -4529,9 +4594,33 @@
   }
 
   /* ---------- Render ---------- */
+  /* Si llegan datos mientras se aprieta un botón, el redibujado espera a que se suelte (si no, el clic se pierde). */
+  var ptrDown = false, ptrRender = false;
+  document.addEventListener("pointerdown", function () {
+    ptrDown = true;
+  }, true);
+  function soltar() {
+    if (!ptrDown) return;
+    ptrDown = false;
+    if (ptrRender) {
+      ptrRender = false;
+      setTimeout(function () {
+        render();
+      }, 0);
+    }
+  }
+  document.addEventListener("click", soltar);
+  document.addEventListener("pointerup", function () {
+    setTimeout(soltar, 0);
+  }, true);
+  document.addEventListener("pointercancel", soltar, true);
   function render(toTop) {
     if (DR && DR.active) {
       S.needsRender = true;
+      return;
+    }
+    if (ptrDown && !toTop) {
+      ptrRender = true;
       return;
     }
     setNav();
@@ -4875,25 +4964,68 @@
         S.selDay = null;
         go("calendario");
         break;
-      case "lmode":
-        S.lmode = el.dataset.v === "todos" ? "todos" : "mes";
-        try {
-          localStorage.setItem("pc_lmode", S.lmode);
-        } catch (e3) {}
-        S.lmScroll = S.lmode === "todos";
-        render(S.lmode === "mes");
+      case "lsort":
+        S.lsort = el.dataset.v === "formato" ? "formato" : "fecha";
+        setPref("pc_lsort", S.lsort);
+        render();
+        break;
+      case "lview":
+        S.lview = el.dataset.v === "detalle" ? "detalle" : "simple";
+        setPref("pc_lview", S.lview);
+        render();
+        break;
+      case "moclose":
+        closeMonthObj();
+        break;
+      case "moedit":
+        closeMonthObj();
+        S.cy = +el.dataset.v.slice(0, 4);
+        S.cm = +el.dataset.v.slice(5, 7) - 1;
+        go("objetivos");
+        break;
+      case "tfmtmenu":
+        p = S.posts.get(el.dataset.id);
+        if (!p) break;
+        if (stMenuBtn === el) closeStMenu(false);
+        else {
+          openMenu(el, FORMAT_ORDER.map(function (f) {
+            return '<button class="tog fmtbtn f-' + f + '" type="button" role="menuitemradio" aria-checked="' + (p.format === f) +
+              '" aria-pressed="' + (p.format === f) + '" data-act="tfmtpick" data-id="' + esc(p.id) + '" data-v="' + f + '">' + fIcon(f) +
+              FORMATS[f].label + "</button>";
+          }).join(""), "fmt-menu");
+        }
+        break;
+      case "tfmtpick":
+        closeStMenu(false);
+        setFormat(S.posts.get(el.dataset.id), el.dataset.v);
+        break;
+      case "tplat":
+        p = S.posts.get(el.dataset.id);
+        if (!p || !canW()) break;
+        var tpl = (p.platforms || []).slice(), tpi = tpl.indexOf(el.dataset.v);
+        if (tpi >= 0) tpl.splice(tpi, 1);
+        else tpl.push(el.dataset.v);
+        p.platforms = tpl;
+        queueSave("posts/" + p.id, { platforms: tpl }, 0);
+        render();
+        break;
+      case "tshoot":
+        p = S.posts.get(el.dataset.id);
+        if (!p || !canW()) break;
+        p.shoot = !p.shoot;
+        queueSave("posts/" + p.id, { shoot: p.shoot }, 0);
+        render();
         break;
       case "pubtoggle":
         S.pubOpen = !S.pubOpen;
         render();
         break;
       case "monthobj":
-        S.cy = +el.dataset.v.slice(0, 4);
-        S.cm = +el.dataset.v.slice(5, 7) - 1;
-        go("objetivos");
+        openMonthObj(el.dataset.v);
         break;
       case "lgroup":
-        S.lgroup = el.dataset.v;
+        S.lgroup = el.dataset.v === "estado" ? "estado" : "mes";
+        setPref("pc_lgroup", S.lgroup);
         render();
         break;
       case "fplat":
@@ -5200,6 +5332,17 @@
   });
   document.addEventListener("input", function (e) {
     var el = e.target;
+    // Tabla de la Lista (vista detallada): cada campo guarda en su post
+    if (el.dataset && el.dataset.tf && el.dataset.id) {
+      var tp = S.posts.get(el.dataset.id);
+      if (!tp || !canW()) return;
+      var tpatch = {};
+      tpatch[el.dataset.tf] = el.value;
+      Object.assign(tp, tpatch);
+      queueSave("posts/" + tp.id, tpatch, el.dataset.tf === "title" ? 600 : 0);
+      if (el.dataset.tf !== "title") render(); // la fecha cambia el orden y el mes
+      return;
+    }
     if (el.id === "fq") {
       S.f.q = el.value;
       render();
