@@ -2233,7 +2233,10 @@
     padding-top: 12px;
   }
   .ltable .lg-pub .lg-h td {
-    padding: 12px 0 6px;
+    padding: 0 0 6px;
+  }
+  .ltable .lg-pub .lm-pub {
+    margin-top: 16px;
   }
   .ltable .lg-empty td {
     color: var(--ink-3);

@@ -1170,7 +1170,7 @@
       h += '<div class="ltable-wrap"><table class="ltable">' + lthead();
       groups.forEach(function (g) {
         h += '<tbody class="lg' + (g.pub ? " lg-pub" : "") + '" id="' + g.id + '"><tr class="lg-h"><td colspan="' + LCOLS.length + '">' +
-          (g.pub ? pubToggle(g.items.length) : g.head) + "</td></tr>";
+          (g.pub ? '<div class="lm-pub">' + pubToggle(g.items.length) + "</div>" : g.head) + "</td></tr>";
         if (!g.pub || S.pubOpen) h += g.items.map(trow).join("");
         if (!g.items.length && g.vacio) h += '<tr class="lg-empty"><td colspan="' + LCOLS.length + '">' + g.vacio + "</td></tr>";
         h += "</tbody>";
