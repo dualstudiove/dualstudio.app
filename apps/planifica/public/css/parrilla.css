@@ -2117,25 +2117,12 @@
     font-size: 13px;
   }
   /* Lista: controles (agrupar, ordenar, vista) */
-  .lctl {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .lctl-l {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ink-3);
-  }
-  .lctl .seg button {
-    padding: 5px 10px;
-    font-size: 13px;
-  }
-  .toolbar .lctl.lview {
+  /* Ojito «Detallada»: solo en computadora (en móvil la Lista es siempre simplificada) */
+  .toolbar .lview {
     margin-left: auto;
   }
   @media (max-width:860px) {
-    .toolbar .lctl.lview {
+    .toolbar .lview {
       display: none;
     }
   }
@@ -2157,7 +2144,7 @@
   }
   .ltable thead th {
     position: sticky;
-    top: 0;
+    top: var(--toph, 0px); /* justo debajo de la cabecera fija de la app */
     z-index: 2;
     background: var(--bg);
     text-align: left;
@@ -2168,8 +2155,8 @@
     border-bottom: 1px solid var(--line);
     white-space: nowrap;
   }
-  .ltable th:nth-child(2) {
-    width: 200px;
+  .ltable th:nth-child(1) {
+    width: 170px;
   }
   .ltable th:nth-child(3) {
     width: 125px;
@@ -2388,7 +2375,7 @@
   }
   /* Ordenar: solo en la vista simplificada (en la detallada se ordena con los encabezados) */
   @media (min-width:861px) {
-    .toolbar .lctl.only-simple {
+    .fpanel .only-simple {
       display: none;
     }
   }

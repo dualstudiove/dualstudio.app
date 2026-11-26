@@ -673,6 +673,11 @@
       (mix ? '<div class="mix">' + mix + "</div>" : "") + smix + "</div></section>";
     return h;
   }
+  function segBtns(act, cur, opts) {
+    return '<div class="seg" role="group">' + opts.map(function (x) {
+      return '<button type="button" data-act="' + act + '" data-v="' + x[0] + '" aria-pressed="' + (cur === x[0]) + '">' + x[1] + "</button>";
+    }).join("") + "</div>";
+  }
   function activeFilters() {
     var f = S.f;
     return (f.plat !== "all" ? 1 : 0) + (f.fmt !== "all" ? 1 : 0) + (f.st !== "all" ? 1 : 0) +
@@ -697,15 +702,9 @@
         "<span>Publicados</span></button>";
     }
     if (isList) {
-      var seg = function (lbl, act, cur, opts, cls) {
-        return '<div class="lctl' + (cls ? " " + cls : "") + '"><span class="lctl-l">' + lbl + '</span><div class="seg" role="group" aria-label="' + lbl + '">' +
-          opts.map(function (x) {
-            return '<button type="button" data-act="' + act + '" data-v="' + x[0] + '" aria-pressed="' + (cur === x[0]) + '">' + x[1] + "</button>";
-          }).join("") + "</div></div>";
-      };
-      h += seg("Agrupar", "lgroup", S.lgroup, [["mes", "Mes"], ["estado", "Estado"]]) +
-        seg("Ordenar", "lsort", S.lsort, [["fecha", "Fecha"], ["formato", "Formato"]], S.lview === "detalle" ? "only-simple" : "") +
-        seg("Vista", "lview", S.lview, [["simple", "Simplificada"], ["detalle", "Detallada"]], "lview");
+      // Vista detallada (tabla): un ojito para mostrarla u ocultarla (solo en computadora)
+      h += '<button class="tog eye lview" type="button" data-act="lviewtog" aria-pressed="' + (S.lview === "detalle") +
+        '" title="Mostrar u ocultar la vista detallada (tabla)">' + (S.lview === "detalle" ? EYE_SVG : EYEOFF_SVG) + "<span>Detallada</span></button>";
     }
     if (legend) {
       h += '<div class="legend">' + Object.keys(STATUS).map(function (k) {
@@ -714,7 +713,11 @@
     }
     h += "</div>";
     if (S.filtersOpen) {
-      h += '<div class="fpanel" id="fpanel">' +
+      h += '<div class="fpanel" id="fpanel">' + (isList
+        ? '<div class="fld"><span class="lbl">Agrupar por</span>' + segBtns("lgroup", S.lgroup, [["mes", "Mes"], ["estado", "Estado"]]) + "</div>" +
+          '<div class="fld' + (S.lview === "detalle" ? " only-simple" : "") + '"><span class="lbl">Ordenar por</span>' +
+          segBtns("lsort", S.lsort, [["fecha", "Fecha"], ["formato", "Formato"]]) + "</div>"
+        : "") +
         '<div class="fld"><label for="fq-plat">Plataforma</label><select id="fq-plat" class="in" data-fsel="plat">' +
         [["all", "Todas"], ["ig", "Instagram"], ["tt", "TikTok"]].map(function (x) {
           return '<option value="' + x[0] + '"' + (f.plat === x[0] ? " selected" : "") + ">" + x[1] + "</option>";
@@ -1034,7 +1037,7 @@
     if (!d) d = cmp(a, b);
     return S.ldir === "desc" ? -d : d;
   }
-  var LCOLS = [["titulo", "Título"], ["fecha", "Fecha"], ["formato", "Formato"], ["redes", "Redes"], ["", "Pauta"], ["", "Drive"], ["estado", "Estado"]];
+  var LCOLS = [["fecha", "Fecha"], ["titulo", "Título"], ["formato", "Formato"], ["redes", "Redes"], ["", "Pauta"], ["", "Drive"], ["estado", "Estado"]];
   function lthead() {
     return "<thead><tr>" + LCOLS.map(function (c) {
       if (!c[0]) return '<th class="th-c">' + c[1] + "</th>";
@@ -1072,8 +1075,8 @@
       '" aria-label="En la pauta"' + (w ? "" : " disabled") + ">" + CHECK_SVG + "</button>";
     var dh = driveHref(p.drive);
     return '<tr class="trow f-' + esc(p.format) + (p.status === "publicado" ? " pub" : "") + '">' +
-      '<td class="tc-t"><div class="tc-tw">' + title + colabTag(p, true) + "</div></td>" +
       '<td class="tc-dt">' + dt + "</td>" +
+      '<td class="tc-t"><div class="tc-tw">' + title + colabTag(p, true) + "</div></td>" +
       '<td class="tc-f">' + fmt + "</td>" +
       '<td class="tc-p">' + plats + "</td>" +
       '<td class="tc-s">' + shoot + "</td>" +
@@ -1187,7 +1190,8 @@
       S.lmScroll = false;
       var sec = S.lgroup === "mes" && document.getElementById("lm-" + todayStr().slice(0, 7));
       if (sec) {
-        var top = sec.getBoundingClientRect().top + window.scrollY - (detalle ? 48 : 12);
+        var tp = document.querySelector(".top"), th = document.querySelector(".ltable thead");
+        var top = sec.getBoundingClientRect().top + window.scrollY - (tp ? tp.offsetHeight : 0) - (th ? th.offsetHeight : 0) - 8;
         setTimeout(function () {
           window.scrollTo(0, top);
         }, 0);
@@ -3736,8 +3740,8 @@
   function fmtTime(t) {
     var m = /^(\d{1,2}):(\d{2})/.exec(t || "");
     if (!m) return "";
-    var h = +m[1], ap = h < 12 ? "a. m." : "p. m.";
-    return (h % 12 || 12) + ":" + m[2] + " " + ap;
+    var h = +m[1];
+    return (h % 12 || 12) + (m[2] === "00" ? "" : ":" + m[2]) + (h < 12 ? "am" : "pm");
   }
   function paintDT() {
     document.querySelectorAll(".dtbtn").forEach(function (b) {
@@ -4793,6 +4797,12 @@
     setTimeout(soltar, 0);
   }, true);
   document.addEventListener("pointercancel", soltar, true);
+  /** Alto de la cabecera fija de la app: el encabezado de la tabla de la Lista se queda justo debajo. */
+  function syncTopH() {
+    var t = document.querySelector(".top");
+    if (t) document.documentElement.style.setProperty("--toph", t.offsetHeight + "px");
+  }
+  window.addEventListener("resize", syncTopH);
   function render(toTop) {
     if (DR && DR.active) {
       S.needsRender = true;
@@ -4814,6 +4824,7 @@
       keep = { id: ae.id, v: ae.value, s: ae.selectionStart, e: ae.selectionEnd };
     }
     var sy = window.scrollY;
+    syncTopH();
     ({ lista: viewLista, calendario: viewCal, objetivos: viewObj, pauta: viewPauta, rendimiento: viewRes })[S.view]();
     if (keep) {
       var el = document.getElementById(keep.id);
@@ -5203,8 +5214,8 @@
       case "dtclose":
         closeDT();
         break;
-      case "lview":
-        S.lview = el.dataset.v === "detalle" ? "detalle" : "simple";
+      case "lviewtog":
+        S.lview = S.lview === "detalle" ? "simple" : "detalle";
         setPref("pc_lview", S.lview);
         render();
         break;
