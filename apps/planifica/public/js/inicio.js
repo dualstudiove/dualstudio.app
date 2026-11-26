@@ -266,26 +266,76 @@ async function cargarAgenda() {
   if (sec) window.scrollTo(0, sec.getBoundingClientRect().top + window.scrollY - 12);
 }
 
+// Tarjetas como las de la Lista de la parrilla: fecha a la izquierda, título, etiquetas y estado (con su menú).
+const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const ST_ICON = {
+  idea: '<circle cx="8" cy="8" r="6.25" stroke-dasharray="2.4 2.5"/>',
+  contenido: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 11.005 4.995z"/>',
+  porproducir: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 12.25 8z"/>',
+  produccion: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 3.75a4.25 4.25 0 0 1 0 8.5z"/>',
+  listo: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 1 1 3.75 8z"/>',
+  publicado: '<circle class="fl" cx="8" cy="8" r="7"/><path class="ck" d="M5.2 8.2l1.9 1.9 3.7-4"/>',
+};
+const CHEV =
+  '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg>';
+const stIcono = (k) =>
+  `<svg class="sti" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${
+    ST_ICON[k] || ST_ICON.idea
+  }</svg>`;
+const fmtIcono = (k) =>
+  FORMATOS[k] ? `<img class="ag-fi" src="${esc(`${BASE}/img/formatos/${k}.png`)}" alt="" aria-hidden="true">` : "";
+const horaCorta = (t) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || "");
+  if (!m) return "";
+  const h = +m[1];
+  return `${h % 12 || 12}${m[2] === "00" ? "" : `:${m[2]}`}${h < 12 ? "am" : "pm"}`;
+};
+const diaLargo = (dia) => {
+  const d = new Date(`${dia}T12:00:00`);
+  const t = `${DIAS_LARGOS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
 function filaAgenda(p, a, cli) {
-  const color = cli.color;
-  const redes = p.platforms.map((r) => REDES[r]).filter(Boolean).join(" · ");
-  const quien = p.colab ? `🤝 ${p.colab.join(", ")}` : cli.nombre;
-  const meta = [quien, FORMATOS[p.format] || "Post", redes, p.time].filter(Boolean).map(esc).join(" · ");
-  const editable = cli.rol === "editor";
-  const estado = editable
-    ? `<label class="sr" for="ag-st-${esc(p.id)}">Estado de ${esc(p.title || "Sin título")}</label><select id="ag-st-${
-      esc(p.id)
-    }" class="prox-st ag-st st-${esc(p.status)}" data-id="${esc(p.id)}" data-cli="${esc(p.cliente)}">${
-      Object.entries(ESTADOS_TODOS).map(([k, v]) =>
-        `<option value="${k}"${k === p.status ? " selected" : ""}>${v}</option>`
-      ).join("")
-    }</select>`
-    : `<span class="prox-st st-${esc(p.status)}">${esc(ESTADOS_TODOS[p.status] || "Idea")}</span>`;
-  return `<div class="prox ag-row" style="--cc:${color}">
-    <span class="prox-dia">${p.date ? esc(fechaCorta(p.date, a.hoy)) : "Sin fecha"}</span>
-    <a class="prox-txt" href="${esc(`${BASE}/${p.cliente}#post-${p.id}`)}"><b>${
+  const d = p.date ? new Date(`${p.date}T12:00:00`) : null;
+  const f = FORMATOS[p.format] ? p.format : "reel";
+  const redes = p.platforms.map((r) => REDES[r]).filter(Boolean).join(", ");
+  const st = ESTADOS_TODOS[p.status] ? p.status : "idea";
+  const estado = cli.rol === "editor"
+    ? `<button type="button" class="ag-st st-${st}" data-ag="stmenu" data-id="${esc(p.id)}" data-cli="${esc(p.cliente)}" aria-haspopup="menu" aria-expanded="false" aria-label="Estado: ${
+      esc(ESTADOS_TODOS[st])
+    }">${stIcono(st)}<span>${esc(ESTADOS_TODOS[st])}</span>${CHEV}</button>`
+    : `<span class="ag-st st-${st}">${stIcono(st)}<span>${esc(ESTADOS_TODOS[st])}</span></span>`;
+  return `<div class="ag-card${st === "publicado" ? " pub" : ""}" style="--cc:${cli.color}">
+    <div class="ag-rd">${
+    d
+      ? `<b>${d.getDate()}</b><span>${DIAS_CORTOS[d.getDay()]}</span>${p.time ? `<span class="ag-rt">${esc(horaCorta(p.time))}</span>` : ""}`
+      : "<b>–</b><span>idea</span>"
+  }</div>
+    <div class="ag-main"><a class="ag-t" href="${esc(`${BASE}/${p.cliente}#post-${p.id}`)}">${
     p.title ? esc(p.title) : "<em>Sin título</em>"
-  }</b><span>${meta}</span></a>${estado}</div>`;
+  }</a>
+      <div class="ag-meta"><span class="ag-cli"><i aria-hidden="true"></i>${esc(cli.nombre)}</span><span class="ag-tag f-${f}">${fmtIcono(f)}${
+    esc(FORMATOS[f])
+  }</span>${redes ? `<span class="ag-pl">${esc(redes)}</span>` : ""}${
+    p.colab ? `<span class="ag-tag ag-colab" title="${esc(p.colab.join(", "))}">🤝 ${p.colab.length} cuentas</span>` : ""
+  }</div></div>
+    ${estado}</div>`;
+}
+
+/** Tarjetas agrupadas por día, con el día como título (como la Lista por mes). */
+function porDia(lista, fila) {
+  let h = "", dia = null;
+  for (const p of lista) {
+    if (p.date !== dia) {
+      if (dia !== null) h += "</div>";
+      dia = p.date;
+      h += `<h3 class="ag-dia">${esc(diaLargo(p.date))}</h3><div class="ag-rows">`;
+    }
+    h += fila(p);
+  }
+  return dia !== null ? `${h}</div>` : h;
 }
 
 function pintarAgenda() {
@@ -317,7 +367,7 @@ function pintarAgenda() {
     h += `<div class="ag-plegable"><button type="button" class="ag-tg" data-ag="pub" aria-expanded="${agenda.pubAbierto}">${
       plural(pub.length, "publicado", "publicados")
     } <span class="muted">· últimos 3 meses</span></button>${
-      agenda.pubAbierto ? `<div class="prox-lista">${pub.slice().reverse().map(fila).join("")}</div>` : ""
+      agenda.pubAbierto ? `<div class="ag-rows">${pub.slice().reverse().map(fila).join("")}</div>` : ""
     }</div>`;
   }
   for (const ym of Object.keys(meses).sort()) {
@@ -326,13 +376,13 @@ function pintarAgenda() {
     h += `<section class="ag-mes" id="ag-${ym}"><h2>${MESES[m - 1]} <span>${y}</span>${
       ym === mesHoy ? ' <em class="ag-now">este mes</em>' : ""
     } <small>${plural(lista.length, "post pendiente", "posts pendientes")}</small></h2>${
-      lista.length ? `<div class="prox-lista">${lista.map(fila).join("")}</div>` : '<p class="muted">Nada pendiente.</p>'
+      lista.length ? porDia(lista, fila) : '<p class="muted">Nada pendiente.</p>'
     }</section>`;
   }
   if (sinFecha.length) {
     h += `<div class="ag-plegable"><button type="button" class="ag-tg" data-ag="ideas" aria-expanded="${agenda.ideasAbiertas}">${
       plural(sinFecha.length, "idea sin fecha", "ideas sin fecha")
-    }</button>${agenda.ideasAbiertas ? `<div class="prox-lista">${sinFecha.map(fila).join("")}</div>` : ""}</div>`;
+    }</button>${agenda.ideasAbiertas ? `<div class="ag-rows">${sinFecha.map(fila).join("")}</div>` : ""}</div>`;
   }
   caja.innerHTML = h;
 }
@@ -384,16 +434,56 @@ document.addEventListener("click", (e) => {
     agenda.ideasAbiertas = !agenda.ideasAbiertas;
     pintarAgenda();
   } else if (t === "nuevo") menuNuevoPost(b);
+  else if (t === "stmenu") {
+    if (b.getAttribute("aria-expanded") === "true") cerrarMenuEstado();
+    else abrirMenuEstado(b);
+  } else if (t === "stpick") {
+    cerrarMenuEstado();
+    cambiarEstado(b.dataset.id, b.dataset.cli, b.dataset.v);
+  }
 });
 
-document.addEventListener("change", async (e) => {
-  const sel = e.target.closest(".ag-st");
-  if (!sel || !agenda.datos) return;
-  const p = agenda.datos.posts.find((x) => x.id === sel.dataset.id && x.cliente === sel.dataset.cli);
-  if (!p) return;
+// Estado: la píldora abre un menú con todos los estados (como en la parrilla)
+function cerrarMenuEstado() {
+  document.getElementById("agStMenu")?.remove();
+  for (const b of document.querySelectorAll('.ag-st[aria-expanded="true"]')) b.setAttribute("aria-expanded", "false");
+}
+function abrirMenuEstado(boton) {
+  cerrarMenuEstado();
+  const m = document.createElement("div");
+  m.id = "agStMenu";
+  m.className = "ag-stmenu";
+  m.setAttribute("role", "menu");
+  const p = agenda.datos.posts.find((x) => x.id === boton.dataset.id && x.cliente === boton.dataset.cli);
+  m.innerHTML = Object.entries(ESTADOS_TODOS).map(([k, v]) =>
+    `<button type="button" role="menuitemradio" aria-checked="${p && p.status === k}" class="ag-st st-${k}" data-ag="stpick" data-v="${k}" data-id="${
+      esc(boton.dataset.id)
+    }" data-cli="${esc(boton.dataset.cli)}">${stIcono(k)}<span>${v}</span></button>`
+  ).join("");
+  document.body.appendChild(m);
+  const r = boton.getBoundingClientRect();
+  let top = r.bottom + 6;
+  if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 6);
+  m.style.top = `${Math.round(top)}px`;
+  m.style.left = `${Math.round(Math.min(r.left, window.innerWidth - m.offsetWidth - 8))}px`;
+  boton.setAttribute("aria-expanded", "true");
+  (m.querySelector('[aria-checked="true"]') || m.firstElementChild)?.focus();
+}
+document.addEventListener("mousedown", (e) => {
+  const m = document.getElementById("agStMenu");
+  if (m && !m.contains(e.target) && !e.target.closest('[data-ag="stmenu"]')) cerrarMenuEstado();
+}, true);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.getElementById("agStMenu")) cerrarMenuEstado();
+});
+window.addEventListener("scroll", cerrarMenuEstado, true);
+
+async function cambiarEstado(id, cli, estado) {
+  const p = agenda.datos.posts.find((x) => x.id === id && x.cliente === cli);
+  if (!p || p.status === estado) return;
   const antes = p.status;
-  p.status = sel.value;
-  sel.className = `prox-st ag-st st-${p.status}`;
+  p.status = estado;
+  pintarAgenda();
   try {
     await apiCliente(p.cliente, `/api/publicaciones/${encodeURIComponent(p.id)}`, {
       method: "PATCH",
@@ -403,9 +493,9 @@ document.addEventListener("change", async (e) => {
   } catch (err) {
     p.status = antes;
     toast(err.message || "No se pudo cambiar el estado.");
+    pintarAgenda();
   }
-  pintarAgenda();
-});
+}
 
 async function boot() {
   let s;

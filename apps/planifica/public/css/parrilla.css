@@ -2403,9 +2403,15 @@
   }
 
   /* Modal «Objetivos» del mes */
+  /* En la ventana, el resumen va siempre en una columna (también en computadora) */
   .sheet.mo .hd {
     border: 0;
     margin: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sheet.mo .hg + .hg {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
   .lm {
     margin-top: 28px;

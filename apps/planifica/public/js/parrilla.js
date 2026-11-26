@@ -1009,7 +1009,7 @@
       '<div class="rd">' +
       (d
         ? "<b>" + d.getDate() + "</b><span>" + DOW[dowMon(d)] + "</span>" +
-          (p.time ? '<span class="rt">' + esc(p.time) + "</span>" : "")
+          (p.time ? '<span class="rt">' + esc(fmtTime(p.time)) + "</span>" : "")
         : "<b>–</b><span>idea</span>") +
       "</div>" +
       '<div><div class="t"><a class="rlink" href="#post-' + esc(p.id) + '" draggable="false">' +
