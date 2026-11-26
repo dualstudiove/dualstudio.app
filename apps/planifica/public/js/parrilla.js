@@ -1003,19 +1003,6 @@
       (S.canWrite ? '<button class="btn ghost sm" type="button" data-act="add" data-date="' + first + '">+ Post</button>' : "") +
       "</span></div>";
   }
-  function daysHtml(items) {
-    var h = "", cur = null;
-    items.forEach(function (p) {
-      if (p.date !== cur) {
-        if (cur !== null) h += "</div></section>";
-        cur = p.date;
-        h += '<section class="day-group"><h3 class="day-h">' + cap(fmtLong(p.date)) +
-          (p.date === todayStr() ? " <span>· hoy</span>" : "") + '</h3><div class="rows">';
-      }
-      h += row(p);
-    });
-    return cur !== null ? h + "</div></section>" : h;
-  }
   function viewListaTodos() {
     var h = notices() + filters(false, true);
     if (!S.loaded.posts && !S.posts.size) {
@@ -1064,7 +1051,9 @@
     Object.keys(months).sort().forEach(function (ym) {
       var it = months[ym];
       h += '<section class="lm" id="lm-' + ym + '">' + monthHead(ym) +
-        (it.length ? daysHtml(it) : '<p class="lm-empty">Nada pendiente este mes' + (activeFilters() ? " con estos filtros" : "") + ".</p>") +
+        (it.length ? '<div class="rows">' + it.map(function (p) {
+          return row(p);
+        }).join("") + "</div>" : '<p class="lm-empty">Nada pendiente este mes' + (activeFilters() ? " con estos filtros" : "") + ".</p>") +
         "</section>";
     });
     var undated = open.filter(function (p) {
