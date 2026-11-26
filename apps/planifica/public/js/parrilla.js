@@ -1086,11 +1086,26 @@
         DRIVE_SVG + "</a>" : '<span class="mut">–</span>') + "</td>" +
       '<td class="tc-st">' + stSelect(p) + "</td></tr>";
   }
-  function monthHead(ym) {
+  var TARGET_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r=".6" fill="currentColor"/></svg>';
+  var PLUS_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>';
+  /** Título de sección pequeño (como los días de la Lista): «Noviembre 2026 · este mes · Tema · Posts 12 de 14». */
+  function secHead(main, extra, acts) {
+    return '<div class="sec-h"><h3 class="day-h">' + main + (extra ? " <span>· " + extra + "</span>" : "") + "</h3>" +
+      (acts ? '<span class="sec-acts">' + acts + "</span>" : "") + "</div>";
+  }
+  function monthHead(ym, compacto) {
     var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
     var g = S.goals.get("m-" + ym) || {}, st = stats(y, m), tgt = Number(g.postTarget) || 0;
     var cur = ym === todayStr().slice(0, 7);
     var first = cur ? "" : ym + "-01";
+    if (compacto) {
+      return secHead(MONTHS[m] + " " + y, [cur ? "este mes" : "", g.theme ? esc(g.theme) : "", "posts " + st.total + (tgt ? " de " + tgt : "")]
+        .filter(Boolean).join(" · "),
+        '<button class="icon-btn sm" type="button" data-act="monthobj" data-v="' + ym + '" title="Objetivos de ' + MONTHS[m].toLowerCase() +
+          '" aria-label="Objetivos de ' + MONTHS[m].toLowerCase() + '">' + TARGET_SVG + "</button>" +
+          (S.canWrite ? '<button class="icon-btn sm" type="button" data-act="add" data-date="' + first + '" title="Nuevo post en ' +
+            MONTHS[m].toLowerCase() + '" aria-label="Nuevo post en ' + MONTHS[m].toLowerCase() + '">' + PLUS_SVG + "</button>" : ""));
+    }
     return '<div class="lm-head"><h2>' + MONTHS[m] + " <span>" + y + "</span>" + (cur ? ' <em class="lm-now">este mes</em>' : "") + "</h2>" +
       '<p class="lm-sub">' + (g.theme ? "<b>" + esc(g.theme) + "</b> · " : "") + "Posts " + st.total +
       (tgt ? " de " + tgt : "") + "</p>" +
@@ -1099,7 +1114,7 @@
       "</span></div>";
   }
   /** Los grupos de la Lista: [{ id, head, items, pub?, vacio? }] en orden. */
-  function listGroups(open, pub) {
+  function listGroups(open, pub, detalle) {
     var gs = [], nowYm = todayStr().slice(0, 7);
     var pubG = pub.length ? { id: "pub", pub: true, items: pub } : null;
     if (S.lgroup === "estado") {
@@ -1109,7 +1124,13 @@
           return (STATUS[p.status] ? p.status : "idea") === k;
         });
         if (g.length) {
-          gs.push({ id: "st-" + k, items: g, head: '<div class="lm-head"><h2 class="lm-st">' + stPill(k) + '</h2><p class="lm-sub">' + plural(g.length, "post", "posts") + "</p></div>" });
+          gs.push({
+            id: "st-" + k,
+            items: g,
+            head: detalle
+              ? '<div class="lm-head"><h2 class="lm-st">' + stPill(k) + '</h2><p class="lm-sub">' + plural(g.length, "post", "posts") + "</p></div>"
+              : secHead(STATUS[k], plural(g.length, "post", "posts")),
+          });
         }
       });
       if (pubG) gs.push(pubG);
@@ -1125,13 +1146,19 @@
     months[nowYm] = months[nowYm] || [];
     months[monthKey(nx.getFullYear(), nx.getMonth())] = months[monthKey(nx.getFullYear(), nx.getMonth())] || [];
     Object.keys(months).sort().forEach(function (ym) {
-      gs.push({ id: "lm-" + ym, items: months[ym], head: monthHead(ym), vacio: "Nada pendiente este mes" + (activeFilters() ? " con estos filtros" : "") + "." });
+      gs.push({ id: "lm-" + ym, items: months[ym], head: monthHead(ym, !detalle), vacio: "Nada pendiente este mes" + (activeFilters() ? " con estos filtros" : "") + "." });
     });
     var undated = open.filter(function (p) {
       return !p.date;
     });
     if (undated.length) {
-      gs.push({ id: "sinfecha", items: undated, head: '<div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length + "</p></div>" });
+      gs.push({
+        id: "sinfecha",
+        items: undated,
+        head: detalle
+          ? '<div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length + "</p></div>"
+          : secHead("Sin fecha", "banco de ideas · " + undated.length),
+      });
     }
     return gs;
   }
@@ -1157,7 +1184,7 @@
       return p.status !== "publicado";
     }), vis.filter(function (p) {
       return p.status === "publicado";
-    }));
+    }), detalle);
     if (detalle) {
       // Una sola tabla: el encabezado arriba (fijo) y cada grupo como una fila de título
       h += '<div class="ltable-wrap"><table class="ltable">' + lthead();

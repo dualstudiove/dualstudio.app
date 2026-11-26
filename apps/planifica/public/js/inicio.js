@@ -268,7 +268,6 @@ async function cargarAgenda() {
 
 // Tarjetas como las de la Lista de la parrilla: fecha a la izquierda, título, etiquetas y estado (con su menú).
 const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const ST_ICON = {
   idea: '<circle cx="8" cy="8" r="6.25" stroke-dasharray="2.4 2.5"/>',
   contenido: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 11.005 4.995z"/>',
@@ -290,11 +289,6 @@ const horaCorta = (t) => {
   if (!m) return "";
   const h = +m[1];
   return `${h % 12 || 12}${m[2] === "00" ? "" : `:${m[2]}`}${h < 12 ? "am" : "pm"}`;
-};
-const diaLargo = (dia) => {
-  const d = new Date(`${dia}T12:00:00`);
-  const t = `${DIAS_LARGOS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`;
-  return t.charAt(0).toUpperCase() + t.slice(1);
 };
 
 function filaAgenda(p, a, cli) {
@@ -322,20 +316,6 @@ function filaAgenda(p, a, cli) {
     p.colab ? `<span class="ag-tag ag-colab" title="${esc(p.colab.join(", "))}">🤝 ${p.colab.length} cuentas</span>` : ""
   }</div></div>
     ${estado}</div>`;
-}
-
-/** Tarjetas agrupadas por día, con el día como título (como la Lista por mes). */
-function porDia(lista, fila) {
-  let h = "", dia = null;
-  for (const p of lista) {
-    if (p.date !== dia) {
-      if (dia !== null) h += "</div>";
-      dia = p.date;
-      h += `<h3 class="ag-dia">${esc(diaLargo(p.date))}</h3><div class="ag-rows">`;
-    }
-    h += fila(p);
-  }
-  return dia !== null ? `${h}</div>` : h;
 }
 
 function pintarAgenda() {
@@ -373,11 +353,9 @@ function pintarAgenda() {
   for (const ym of Object.keys(meses).sort()) {
     const lista = meses[ym];
     const [y, m] = ym.split("-").map(Number);
-    h += `<section class="ag-mes" id="ag-${ym}"><h2>${MESES[m - 1]} <span>${y}</span>${
-      ym === mesHoy ? ' <em class="ag-now">este mes</em>' : ""
-    } <small>${plural(lista.length, "post pendiente", "posts pendientes")}</small></h2>${
-      lista.length ? porDia(lista, fila) : '<p class="muted">Nada pendiente.</p>'
-    }</section>`;
+    h += `<section class="ag-mes" id="ag-${ym}"><h3 class="ag-dia">${MESES[m - 1]} ${y} <span>· ${
+      [ym === mesHoy ? "este mes" : "", plural(lista.length, "post pendiente", "posts pendientes")].filter(Boolean).join(" · ")
+    }</span></h3>${lista.length ? `<div class="ag-rows">${lista.map(fila).join("")}</div>` : '<p class="muted">Nada pendiente.</p>'}</section>`;
   }
   if (sinFecha.length) {
     h += `<div class="ag-plegable"><button type="button" class="ag-tg" data-ag="ideas" aria-expanded="${agenda.ideasAbiertas}">${

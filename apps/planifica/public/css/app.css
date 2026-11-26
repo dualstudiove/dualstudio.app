@@ -327,7 +327,7 @@
     background: var(--cc);
   }
   .ag-mes {
-    margin-top: 26px;
+    margin-top: 22px;
   }
   .ag-mes h2 {
     font-family: var(--font-display);
@@ -366,7 +366,11 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--ink-2);
-    margin: 14px 0 6px;
+    margin: 0 0 6px;
+  }
+  .ag-dia span {
+    font-weight: 500;
+    color: var(--ink-3);
   }
   .ag-rows {
     display: flex;
