@@ -368,6 +368,12 @@
     color: var(--ink-2);
     margin: 0 0 6px;
   }
+  .ag-dia .ag-now {
+    font-size: 11px;
+    padding: 1px 8px;
+    margin: 0 2px;
+    vertical-align: 1px;
+  }
   .ag-dia span {
     font-weight: 500;
     color: var(--ink-3);

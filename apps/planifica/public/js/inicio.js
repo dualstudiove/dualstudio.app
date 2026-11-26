@@ -353,9 +353,9 @@ function pintarAgenda() {
   for (const ym of Object.keys(meses).sort()) {
     const lista = meses[ym];
     const [y, m] = ym.split("-").map(Number);
-    h += `<section class="ag-mes" id="ag-${ym}"><h3 class="ag-dia">${MESES[m - 1]} ${y} <span>· ${
-      [ym === mesHoy ? "este mes" : "", plural(lista.length, "post pendiente", "posts pendientes")].filter(Boolean).join(" · ")
-    }</span></h3>${lista.length ? `<div class="ag-rows">${lista.map(fila).join("")}</div>` : '<p class="muted">Nada pendiente.</p>'}</section>`;
+    h += `<section class="ag-mes" id="ag-${ym}"><h3 class="ag-dia">${MESES[m - 1]} ${y}${
+      ym === mesHoy ? ' <em class="ag-now">este mes</em>' : ""
+    } <span>· ${plural(lista.length, "post pendiente", "posts pendientes")}</span></h3>${lista.length ? `<div class="ag-rows">${lista.map(fila).join("")}</div>` : '<p class="muted">Nada pendiente.</p>'}</section>`;
   }
   if (sinFecha.length) {
     h += `<div class="ag-plegable"><button type="button" class="ag-tg" data-ag="ideas" aria-expanded="${agenda.ideasAbiertas}">${

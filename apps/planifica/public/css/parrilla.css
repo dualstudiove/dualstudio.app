@@ -1307,6 +1307,10 @@
     flex-wrap: wrap;
     margin-bottom: 12px;
   }
+  /* La Lista empieza directo con la barra (sin el mes arriba): mismo aire que el mes en las otras vistas */
+  #main > .toolbar:first-child {
+    margin-top: 20px;
+  }
   .filter-btn {
     display: inline-flex;
     align-items: center;
@@ -2126,9 +2130,6 @@
       display: none;
     }
   }
-  .lm-st .st {
-    font-size: 14px;
-  }
 
   /* Lista detallada: una sola tabla (encabezado arriba, fijo; los grupos son filas de título). Las celdas se ven
      como texto; al pasar el mouse se nota qué se puede editar. */
@@ -2230,11 +2231,6 @@
   }
   .ltable .lg:first-of-type .lg-h td {
     padding-top: 12px;
-  }
-  .ltable .lg-h .lm-head {
-    border-bottom: 0;
-    padding-bottom: 0;
-    margin: 0;
   }
   .ltable .lg-pub .lg-h td {
     padding: 12px 0 6px;
@@ -2417,26 +2413,6 @@
     margin-top: 28px;
     scroll-margin-top: 12px;
   }
-  .lm-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 14px;
-    padding-bottom: 10px;
-    margin-bottom: 6px;
-    border-bottom: 2px solid var(--line);
-  }
-  .lm-head h2 {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -.01em;
-    margin: 0;
-  }
-  .lm-head h2 span {
-    color: var(--ink-3);
-    font-weight: 500;
-  }
   .lm-now {
     font-style: normal;
     font-family: var(--font-body);
@@ -2448,21 +2424,12 @@
     border-radius: 99px;
     vertical-align: middle;
   }
-  .lm-sub {
-    margin: 0;
-    color: var(--ink-2);
-    font-size: 14px;
-  }
-  .lm-acts {
-    margin-left: auto;
-    display: flex;
-    gap: 4px;
-  }
   .lm > .rows {
     margin-top: 12px;
   }
   /* Títulos de sección pequeños (lista simplificada): mes, estado o «Sin fecha», con botones de ícono */
-  .lm .sec-h {
+  .lm .sec-h,
+  .lg-h .sec-h {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2470,9 +2437,18 @@
     margin-bottom: 6px;
     min-height: 30px;
   }
-  .lm .sec-h .day-h {
+  .lm .sec-h .day-h,
+  .lg-h .sec-h .day-h {
     margin: 0;
     text-transform: none;
+    align-items: center;
+  }
+  .sec-h .lm-now {
+    font-size: 11px;
+    padding: 1px 8px;
+  }
+  .ltable .lg-h td {
+    padding-top: 18px;
   }
   .lm .sec-h .day-h span {
     text-transform: none;
