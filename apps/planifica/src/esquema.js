@@ -4,7 +4,7 @@
 // Multicliente: todo lo que se planifica cuelga de un cliente (cliente_id) y ninguna consulta cruza clientes.
 // Las publicaciones y los objetivos guardan su contenido como JSON (datos) con campos permitidos y tamaño máximo
 // (ver validar.js): así la interfaz puede evolucionar sin migraciones para cada campo nuevo.
-import { crearEsquema } from "@dualstudio/comun/servidor";
+import { crearEsquema, d1Actual, guardarAjuste, leerAjuste } from "@dualstudio/comun/servidor";
 
 export const ESQUEMA_BASE = `
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -174,9 +174,54 @@ CREATE TABLE IF NOT EXISTS ads_impulsos (
 CREATE INDEX IF NOT EXISTS idx_ads_impulsos_cliente ON ads_impulsos (cliente_id, inicio);
 `;
 
-export const asegurarEsquema = crearEsquema({
+const esquemaCompleto = crearEsquema({
   base: ESQUEMA_BASE,
   testigo: "usuarios",
   columnas: COLUMNAS,
   tablas: TABLAS_REDES + TABLAS_ADS,
 });
+
+/** Huella del esquema: cambia sola cuando cambia algo de lo que se aplica (tablas, columnas, índices). */
+function huella(texto) {
+  let h = 0x811c9dc5; // FNV-1a de 32 bits
+  for (let i = 0; i < texto.length; i++) {
+    h ^= texto.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16);
+}
+export const VERSION_ESQUEMA = huella(
+  [ESQUEMA_BASE, TABLAS_REDES, TABLAS_ADS, JSON.stringify(COLUMNAS)].join("\n"),
+);
+
+/**
+ * La revisión completa (tablas, columnas e índices: muchas consultas) solo corre si la base no tiene la versión
+ * actual del esquema (_ajustes «esquema_version»), o sea, la primera vez tras publicar un cambio que la toca. En
+ * los demás arranques es 1 consulta: así un fallo pasajero de la base al arrancar ya casi no puede pasar.
+ */
+async function aplicarEsquema(binding) {
+  try {
+    if ((await leerAjuste("esquema_version")) === VERSION_ESQUEMA) return;
+  } catch { /* base nueva (aún sin _ajustes): se hace la revisión completa */ }
+  await esquemaCompleto(binding);
+  await guardarAjuste("esquema_version", VERSION_ESQUEMA);
+}
+
+const revisadas = new WeakMap();
+/**
+ * Aplica el esquema una vez por base y por instancia del Worker. Si falla (p. ej. un error pasajero de D1), no
+ * tumba la petición: queda en el registro y se reintenta en la siguiente.
+ */
+export function asegurarEsquema(binding = d1Actual()) {
+  const previa = revisadas.get(binding);
+  if (previa) return previa;
+  const p = aplicarEsquema(binding).catch((e) => {
+    revisadas.delete(binding); // se reintenta en la próxima petición
+    console.error(
+      "[esquema] No se pudo revisar el esquema; se reintenta en la próxima petición:",
+      e?.message || e,
+    );
+  });
+  revisadas.set(binding, p);
+  return p;
+}

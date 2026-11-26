@@ -23,7 +23,14 @@ export const { app, fetch, scheduled } = crearServidor({
   router,
   configurar: configurarEnv,
   asegurarEsquema,
-  alIniciar: () => asegurarAdminDesdeSecretos(),
+  // Si falla (p. ej. la base no responde un momento), no tumba la petición: se reintenta en el próximo arranque
+  alIniciar: () =>
+    asegurarAdminDesdeSecretos().catch((e) =>
+      console.error(
+        "[cuentas] No se pudieron revisar los secretos de recuperación:",
+        e?.message || e,
+      )
+    ),
   // Cada mañana (ver «triggers» en wrangler.jsonc): métricas de Instagram de los clientes conectados.
   programado: async () => {
     await asegurarEsquema();
