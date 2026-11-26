@@ -2235,9 +2235,6 @@
   .ltable .lg-pub .lg-h td {
     padding: 0 0 6px;
   }
-  .ltable .lg-pub .lm-pub {
-    margin-top: 16px;
-  }
   .ltable .lg-empty td {
     color: var(--ink-3);
     background: transparent;
@@ -2515,8 +2512,8 @@
   .lm-pubtg[aria-expanded="false"] .chev {
     transform: rotate(-90deg);
   }
-  .lm-pubm {
-    padding-bottom: 10px;
+  .lm-pub + .rows {
+    margin-top: 8px;
   }
 
   /* Cabecera del detalle: estado y formato como selectores; «⋯» con acciones */

@@ -1142,9 +1142,10 @@
     }
     return gs;
   }
-  function pubToggle(n) {
-    return '<button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' + CHEV_SVG + "<span>" + stIcon("publicado") +
-      plural(n, "publicado", "publicados") + "</span></button>";
+  /** Caja «✓ N publicados» (plegable): la misma en las dos vistas; al abrirla, las filas salen debajo. */
+  function pubBox(n) {
+    return '<div class="lm-pub"><button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' + CHEV_SVG +
+      "<span>" + stIcon("publicado") + plural(n, "publicado", "publicados") + "</span></button></div>";
   }
   function viewLista() {
     var h = notices() + filters(false, true);
@@ -1170,7 +1171,7 @@
       h += '<div class="ltable-wrap"><table class="ltable">' + lthead();
       groups.forEach(function (g) {
         h += '<tbody class="lg' + (g.pub ? " lg-pub" : "") + '" id="' + g.id + '"><tr class="lg-h"><td colspan="' + LCOLS.length + '">' +
-          (g.pub ? '<div class="lm-pub">' + pubToggle(g.items.length) + "</div>" : g.head) + "</td></tr>";
+          (g.pub ? pubBox(g.items.length) : g.head) + "</td></tr>";
         if (!g.pub || S.pubOpen) h += g.items.map(trow).join("");
         if (!g.items.length && g.vacio) h += '<tr class="lg-empty"><td colspan="' + LCOLS.length + '">' + g.vacio + "</td></tr>";
         h += "</tbody>";
@@ -1182,7 +1183,7 @@
           return row(p);
         }).join("") + "</div>";
         if (g.pub) {
-          h += '<section class="lm-pub">' + pubToggle(g.items.length) + (S.pubOpen ? '<div class="lm-pubm">' + rows + "</div>" : "") + "</section>";
+          h += "<section>" + pubBox(g.items.length) + (S.pubOpen ? rows : "") + "</section>";
         } else {
           h += '<section class="lm" id="' + g.id + '">' + g.head + (g.items.length ? rows : '<p class="lm-empty">' + (g.vacio || "") + "</p>") + "</section>";
         }
