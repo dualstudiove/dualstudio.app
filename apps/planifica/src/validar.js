@@ -24,6 +24,7 @@ export const CAMPOS_PUBLICACION = new Set([
   "refShow",
   "drive",
   "igLink",
+  "grabarEn", // mes de la pauta en que se graba (AAAA-MM); vacío = el de su fecha de publicación
 ]);
 export const FORMATOS = new Set(["reel", "carrusel", "foto", "historia", "diseno"]);
 export const ESTADOS = new Set(["idea", "contenido", "porproducir", "produccion", "listo", "publicado"]);
@@ -81,6 +82,9 @@ export function validarCambiosPublicacion(cambios) {
     }
     if (k === "time" && v !== "" && !(typeof v === "string" && /^\d{2}:\d{2}$/.test(v))) {
       throw new HttpError(400, "La hora no es válida.");
+    }
+    if (k === "grabarEn" && v !== "" && !(typeof v === "string" && /^\d{4}-\d{2}$/.test(v))) {
+      throw new HttpError(400, "El mes de grabación no es válido.");
     }
     // Link de la carpeta de Drive. Se guarda tal como se escribe (también a medias); la interfaz
     // solo lo vuelve enlace si es http(s).

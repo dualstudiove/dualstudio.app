@@ -917,7 +917,7 @@
   /** Duplicar: la copia queda en Idea, sin fecha ni link, con el contenido y la producción del original. */
   function duplicatePost(p) {
     if (!p || !canW()) return;
-    var skip = { id: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1, igLink: 1, refImgs: 1, date: 1, time: 1, status: 1, colab: 1 };
+    var skip = { id: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1, igLink: 1, refImgs: 1, date: 1, time: 1, status: 1, colab: 1, grabarEn: 1 };
     var data = {};
     Object.keys(p).forEach(function (k) {
       if (!skip[k]) data[k] = p[k];
@@ -946,6 +946,10 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && S.impOpen) {
       closeImp();
+      return;
+    }
+    if (e.key === "Escape" && S.trOpen) {
+      closeTraer();
       return;
     }
     if (e.key === "Escape" && S.moOpen) {
@@ -2084,10 +2088,30 @@
     var k = dowMon(d);
     return ymd(d.getFullYear(), d.getMonth(), d.getDate() - k);
   }
+  /* Pauta de un mes: los posts en la pauta cuyo mes de grabación es ese (el de su fecha, o el elegido en «Grabar
+     en»), más los de meses anteriores que siguen sin tomar ni publicar (se arrastran sin límite, «Pendiente de …»). */
+  function shootYM(p) {
+    return p.grabarEn || (p.date ? p.date.slice(0, 7) : "");
+  }
+  function monthName(ym) {
+    return MONTHS[+ym.slice(5, 7) - 1].toLowerCase();
+  }
+  function pautaOrigen(p, ym) {
+    var g = shootYM(p);
+    if (g && g < ym) return "Pendiente de " + monthName(g);
+    if (p.date && p.date.slice(0, 7) !== ym) return "Se publica en " + monthName(p.date.slice(0, 7));
+    return "";
+  }
+  function enPauta(p, ym) {
+    var g = shootYM(p);
+    if (!p.shoot || !g) return false;
+    if (g === ym) return true;
+    return g < ym && !isTaken(p) && p.status !== "publicado";
+  }
   function pautaData() {
-    var y = S.cy, m = S.cm;
+    var y = S.cy, m = S.cm, ym = monthKey(y, m);
     var all = allPosts().filter(function (p) {
-      return p.shoot && inMonth(p, y, m);
+      return enPauta(p, ym);
     }).sort(cmp);
     var done = all.filter(isTaken).length;
     var items = S.showDone ? all : all.filter(function (p) {
@@ -2119,9 +2143,9 @@
     } else if (S.group === "fecha") {
       var wm = {}, wo = [];
       items.forEach(function (p) {
-        var k = mondayOf(p.date);
+        var k = p.date ? mondayOf(p.date) : "9999";
         if (!wm[k]) {
-          wm[k] = { title: weekLabel(k), items: [] };
+          wm[k] = { title: p.date ? weekLabel(k) : "Sin fecha", items: [] };
           wo.push(k);
         }
         wm[k].items.push(p);
@@ -2190,8 +2214,9 @@
       '" aria-label="Marcar todo como tomado: ' + esc(p.title || "Sin título") +
       '" data-act="done" data-id="' + esc(p.id) + '">' + CHECK_SVG + "</button>" +
       '<div><div class="ih"><a class="it" href="#post-' + esc(p.id) + '">' +
-      (esc(p.title) || "Sin título") + '</a><span class="tag">' + fIcon(p.format) + f.label +
-      "</span></div>" +
+      (esc(p.title) || "Sin título") + '</a><span class="ih-tags">' + (function (o) {
+        return o ? '<span class="porig' + (o.indexOf("Pendiente") === 0 ? " late" : "") + '">' + esc(o) + "</span>" : "";
+      })(pautaOrigen(p, monthKey(S.cy, S.cm))) + '<span class="tag">' + fIcon(p.format) + f.label + "</span></span></div>" +
       '<div class="det">' + det.join(" · ") + "</div>" +
       (p.direction
         ? '<div class="det"><b>Dirección creativa:</b> ' + esc(p.direction) + "</div>"
@@ -2224,6 +2249,7 @@
       '<button class="tog eye" type="button" data-act="toggledone" aria-pressed="' + S.showDone +
       '" title="Mostrar u ocultar las piezas ya tomadas">' + (S.showDone ? EYE_SVG : EYEOFF_SVG) +
       "<span>Tomados</span></button>" +
+      (S.canWrite ? '<button class="btn" type="button" data-act="traer">+ Traer de ' + MONTHS[(S.cm + 1) % 12].toLowerCase() + "</button>" : "") +
       '<button class="btn primary pdfbtn" type="button" data-act="dlpdf">Descargar PDF</button></div>';
     h += '<article class="doc"><h2>Pauta audiovisual</h2><p class="sub">' +
       (handle ? esc(handle) + " · " : "") + MONTHS[S.cm] + " " + S.cy + "</p>";
@@ -2478,7 +2504,8 @@
           },
         });
       }
-      para("Publica:", whenTxt(p) + " · " + platTxt(p));
+      var orig = pautaOrigen(p, monthKey(S.cy, S.cm));
+      para("Publica:", whenTxt(p) + " · " + platTxt(p) + (orig ? " · " + orig : ""));
       if (p.location) para("Locación:", p.location);
       if (p.props) para("Props / vestuario:", p.props);
       if (p.direction) para("Dirección creativa:", p.direction);
@@ -3580,6 +3607,54 @@
     return h + "</section>";
   }
   /* Ventana para registrar o editar un impulso (un post de la parrilla impulsado en Meta). */
+  /* ---------- Pauta: traer posts del mes siguiente para grabarlos en este (adelantar) ---------- */
+  function closeTraer() {
+    var o = document.getElementById("trOv");
+    if (o) o.remove();
+    S.trOpen = null;
+  }
+  function openTraer() {
+    closeTraer();
+    var ym = monthKey(S.cy, S.cm), nx = new Date(S.cy, S.cm + 1, 1), nym = monthKey(nx.getFullYear(), nx.getMonth());
+    S.trOpen = { ym: ym, nym: nym };
+    var ov = document.createElement("div");
+    ov.id = "trOv";
+    ov.className = "sheet-ov";
+    ov.addEventListener("mousedown", function (e) {
+      if (e.target === ov) closeTraer();
+    });
+    document.body.appendChild(ov);
+    paintTraer();
+  }
+  function paintTraer() {
+    var st = S.trOpen, ov = document.getElementById("trOv");
+    if (!st || !ov) return;
+    var list = allPosts().filter(function (p) {
+      return p.shoot && p.date && p.date.slice(0, 7) === st.nym && !isTaken(p) && p.status !== "publicado" &&
+        (!p.grabarEn || p.grabarEn === st.ym || p.grabarEn === st.nym);
+    }).sort(cmp);
+    ov.innerHTML = '<div class="sheet tr" role="dialog" aria-modal="true" aria-labelledby="trT"><h2 id="trT">Traer de ' + monthName(st.nym) +
+      "</h2><p class=\"mut\">Marca los posts de " + monthName(st.nym) + " que se graban en la pauta de " + monthName(st.ym) +
+      ". Siguen publicándose en su fecha.</p>" +
+      (list.length
+        ? '<div class="tr-list">' + list.map(function (p) {
+          var on = p.grabarEn === st.ym;
+          return '<button type="button" class="tr-it" role="checkbox" aria-checked="' + on + '" data-act="traerpick" data-id="' + esc(p.id) + '">' +
+            CHECK_SVG + '<span class="tr-t"><b>' + (p.title ? esc(p.title) : "Sin título") + "</b><span>" + esc(cap(fmtLong(p.date))) + " · " +
+            esc((FORMATS[p.format] || FORMATS.reel).label) + "</span></span></button>";
+        }).join("") + "</div>"
+        : '<p class="mut">No hay posts de ' + monthName(st.nym) + " en la pauta pendientes de grabar.</p>") +
+      '<div class="acts"><span class="grow"></span><button class="btn primary" type="button" data-act="traerclose">Listo</button></div></div>';
+  }
+  function traerPick(id) {
+    var p = S.posts.get(id), st = S.trOpen;
+    if (!p || !st || !canW()) return;
+    p.grabarEn = p.grabarEn === st.ym ? "" : st.ym;
+    queueSave("posts/" + p.id, { grabarEn: p.grabarEn }, 0);
+    paintTraer();
+    render();
+  }
+
   /* ---------- Nuevo post: una ventana corta; se guarda solo al pulsar «Crear post» ---------- */
   /* ---------- Selector de fecha y hora (propio; reemplaza los del navegador) ----------
      Cada campo es un botón que muestra la fecha u hora y un input oculto con el valor (AAAA-MM-DD / HH:MM). Al elegir,
@@ -4286,6 +4361,8 @@
       "</section></div>" +
       '<div class="col col-produccion">' +
       '<section class="card"><div class="card-h"><h3>Producción</h3><button class="sw" id="sw-shoot" type="button" role="switch" aria-checked="false" data-act="togshoot" title="Aparece en la pauta audiovisual del mes de publicación"><span class="trk"></span><span>En la pauta</span></button></div>' +
+      '<div class="fld grabfld" id="grabFld"><label for="f-grabarEn">Grabar en</label><select id="f-grabarEn" class="in sel" data-f="grabarEn"' + ro +
+      "></select></div>" +
       '<div class="fld"><label for="f-direction">Dirección creativa</label><textarea id="f-direction" class="in" data-f="direction" rows="4" placeholder="Idea, tono, estilo visual, música…"' +
       ro + "></textarea></div>" +
       '<div class="fld" id="shotsFld"><div class="lblrow"><span class="lbl" id="lbl-shot">Lista de tomas</span><span class="cnt" id="shotProg"></span>' +
@@ -4353,6 +4430,29 @@
       if (!add.hidden) any = true;
     });
     $("#optAdds").hidden = !any;
+  }
+  /* «Grabar en»: la pauta en que se graba el post. Por defecto la de su mes; se puede adelantar a meses anteriores. */
+  function paintGrab(p) {
+    var fld = $("#grabFld"), sel = $("#f-grabarEn");
+    if (!fld || !sel) return;
+    fld.hidden = !p.shoot;
+    var base = p.date ? p.date.slice(0, 7) : todayStr().slice(0, 7);
+    var by = +base.slice(0, 4), bm = +base.slice(5, 7) - 1, opts = [["", p.date ? "Su mes (" + monthName(base) + ")" : "Su mes de publicación"]];
+    for (var k = 1; k <= 3; k++) {
+      var d = new Date(by, bm - k, 1), ym = monthKey(d.getFullYear(), d.getMonth());
+      opts.push([ym, cap(monthName(ym)) + (d.getFullYear() !== by ? " " + d.getFullYear() : "")]);
+    }
+    if (p.grabarEn && !opts.some(function (o) {
+      return o[0] === p.grabarEn;
+    })) opts.push([p.grabarEn, cap(monthName(p.grabarEn)) + " " + p.grabarEn.slice(0, 4)]);
+    var sig = JSON.stringify(opts) + (p.grabarEn || "");
+    if (sel.dataset.sig !== sig) {
+      sel.innerHTML = opts.map(function (o) {
+        return '<option value="' + o[0] + '"' + ((p.grabarEn || "") === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+      }).join("");
+      sel.dataset.sig = sig;
+    }
+    if (sel !== document.activeElement) sel.value = p.grabarEn || "";
   }
   /* «Autoguardado ✓»: mientras hay cambios por guardar dice «Guardando…». */
   function paintSave() {
@@ -4577,6 +4677,7 @@
     paintRefs(p);
     $("#lbl-shot").textContent = (FORMATS[p.format] || FORMATS.reel).list;
     paintOpts(p);
+    paintGrab(p);
     paintDT();
     paintCounters();
     paintFooter();
@@ -4934,6 +5035,15 @@
           setDT(dtid, el.dataset.v);
           if (dtb) dtb.focus();
         }
+        break;
+      case "traer":
+        openTraer();
+        break;
+      case "traerpick":
+        traerPick(el.dataset.id);
+        break;
+      case "traerclose":
+        closeTraer();
         break;
       case "npclose":
         closeNewPost();

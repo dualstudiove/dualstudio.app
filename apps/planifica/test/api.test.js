@@ -234,6 +234,8 @@ test("validación de publicaciones", async () => {
   assert.equal((await mal({ status: "casi" })).status, 400);
   assert.equal((await mal({ platforms: ["fb"] })).status, 400);
   assert.equal((await mal({ date: "mañana" })).status, 400);
+  assert.equal((await mal({ grabarEn: "diciembre" })).status, 400, "mes de grabación AAAA-MM");
+  assert.equal((await mal({ status: "contenido" })).status, 200, "el estado «Contenido» existe");
   assert.equal((await mal({ copy: "x".repeat(20_001) })).status, 400);
   assert.equal(
     (await editora("/laboratorio-rh/api/publicaciones", {
