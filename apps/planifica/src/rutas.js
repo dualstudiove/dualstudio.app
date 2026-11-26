@@ -89,6 +89,7 @@ const usuarioPublico = (u) => ({
 
 const ATRASO_MAX = 30; // «Atrasados»: posts sin publicar con fecha de hasta 30 días atrás
 const DIAS_PROXIMOS = 7; // hoy y los 7 días siguientes
+const PUBLICADOS_AGENDA = 90; // la Agenda muestra lo publicado de los últimos 90 días
 
 export function registrarRutas(r) {
   const C = { cliente: true, auth: accesoACliente };
@@ -173,6 +174,51 @@ export function registrarRutas(r) {
       });
     }
     return { hoy: dia, hasta: sumarDias(dia, DIAS_PROXIMOS), posts };
+  });
+
+  // Agenda del inicio: los posts de todos los clientes activos que tienes asignados. Todo lo que no está publicado
+  // (con o sin fecha) y lo publicado de los últimos PUBLICADOS_AGENDA días.
+  r.add("GET", "/api/agenda", { auth: conSesion }, async ({ usuario }) => {
+    const dia = hoy();
+    const clientes = (await clientesDe(usuario)).filter((c) => c.activo);
+    if (!clientes.length) return { hoy: dia, clientes: [], posts: [] };
+    const porId = new Map(clientes.map((c) => [c.id, c]));
+    const filtro = usuario.es_admin
+      ? "SELECT id FROM clientes WHERE activo = 1"
+      : "SELECT a.cliente_id FROM accesos a JOIN clientes c ON c.id = a.cliente_id WHERE a.usuario_id = ? AND c.activo = 1";
+    const filas = await db.all(
+      `SELECT p.id, p.cliente_id, p.datos FROM publicaciones p
+        WHERE p.cliente_id IN (${filtro})
+          AND (COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado'
+               OR json_extract(p.datos, '$.date') >= ?)`,
+      [...(usuario.es_admin ? [] : [usuario.id]), sumarDias(dia, -PUBLICADOS_AGENDA)],
+    );
+    const posts = [];
+    for (const f of filas) {
+      let d;
+      try {
+        d = JSON.parse(f.datos);
+      } catch {
+        continue;
+      }
+      const c = porId.get(f.cliente_id);
+      if (!c) continue;
+      posts.push({
+        id: f.id,
+        cliente: c.slug,
+        title: typeof d.title === "string" ? d.title.slice(0, 200) : "",
+        format: d.format || "reel",
+        platforms: Array.isArray(d.platforms) ? d.platforms : [],
+        date: typeof d.date === "string" ? d.date : "",
+        time: typeof d.time === "string" ? d.time : "",
+        status: d.status || "idea",
+      });
+    }
+    return {
+      hoy: dia,
+      clientes: clientes.map((c) => ({ slug: c.slug, nombre: c.nombre, handle: c.handle, rol: c.rol })),
+      posts,
+    };
   });
 
   r.add("PUT", "/api/cuenta", { auth: conSesion }, async ({ usuario, body }) => {

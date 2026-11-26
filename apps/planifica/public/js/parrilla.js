@@ -293,6 +293,15 @@
     refBusy: false,
     needsRender: false,
     lgroup: "fecha",
+    // Lista: «mes» (un mes con flechas) o «todos» (todos los meses seguidos)
+    lmode: (function () {
+      try {
+        return localStorage.getItem("pc_lmode") === "todos" ? "todos" : "mes";
+      } catch (e) {
+        return "mes";
+      }
+    })(),
+    pubOpen: false,
     mdel: "",
     mcol: (function () {
       try {
@@ -323,12 +332,12 @@
   function inMonth(p, y, m) {
     return !!p.date && p.date.indexOf(monthKey(y, m) + "-") === 0;
   }
-  function passes(p) {
+  function passes(p, anyPub) {
     var f = S.f;
     if (f.plat !== "all" && (p.platforms || []).indexOf(f.plat) < 0) return false;
     if (f.fmt !== "all" && p.format !== f.fmt) return false;
     if (f.st !== "all" && p.status !== f.st) return false;
-    if (!S.showPub && p.status === "publicado") return false;
+    if (!anyPub && !S.showPub && p.status === "publicado") return false;
     if (f.q) {
       var hay = ((p.title || "") + " " + (p.copy || "") + " " + (p.hashtags || "") + " " +
         (p.direction || "")).toLowerCase();
@@ -477,8 +486,14 @@
   /* ---------- Routing ---------- */
   var LISTS = ["lista", "calendario", "objetivos", "pauta", "rendimiento"];
   function route() {
-    var h = location.hash.replace(/^#/, "");
+    var h = location.hash.replace(/^#/, ""), prev = S.view;
     if (h === "resultados") h = "rendimiento"; // nombre anterior de la pestaña
+    // #nuevo (o #nuevo-AAAA-MM-DD): llegar desde la Agenda del inicio para crear un post aquí
+    if (h === "nuevo" || /^nuevo-\d{4}-\d{2}-\d{2}$/.test(h)) {
+      S.pendingNew = h.slice(6);
+      history.replaceState(null, "", "#lista");
+      h = "lista";
+    }
     if (h.indexOf("post-") === 0) {
       S.view = "detalle";
       if (S.postId !== h.slice(5)) S.dtab = "contenido";
@@ -492,6 +507,8 @@
     }
     if (S.view === "lista" || S.view === "calendario") S.last = S.view;
     if (S.view !== "objetivos") S.goalsEdit = false;
+    // Lista «Todos»: al llegar (no al volver de un post) se ubica en el mes actual
+    if (S.view === "lista" && prev !== "lista" && prev !== "detalle") S.lmScroll = true;
   }
   function go(h) {
     if (location.hash === "#" + h) {
@@ -660,10 +677,19 @@
     if (n) {
       h += '<button class="btn ghost sm" type="button" data-act="clearfilters">Limpiar</button>';
     }
-    h += '<button class="tog eye" type="button" data-act="togpub" aria-pressed="' + S.showPub +
-      '" title="Mostrar u ocultar los posts publicados">' + (S.showPub ? EYE_SVG : EYEOFF_SVG) +
-      "<span>Publicados</span></button>";
-    if (isList && S.lgroup === "estado") h += '<span class="hits">Agrupado por estado</span>';
+    if (!(isList && S.lmode === "todos")) {
+      h += '<button class="tog eye" type="button" data-act="togpub" aria-pressed="' + S.showPub +
+        '" title="Mostrar u ocultar los posts publicados">' + (S.showPub ? EYE_SVG : EYEOFF_SVG) +
+        "<span>Publicados</span></button>";
+    }
+    if (isList && S.lmode === "mes" && S.lgroup === "estado") h += '<span class="hits">Agrupado por estado</span>';
+    if (isList) {
+      h += '<div class="seg lmode" role="group" aria-label="Ver la lista">' +
+        [["mes", "Por mes"], ["todos", "Todos"]].map(function (x) {
+          return '<button type="button" data-act="lmode" data-v="' + x[0] + '" aria-pressed="' + (S.lmode === x[0]) + '">' +
+            x[1] + "</button>";
+        }).join("") + "</div>";
+    }
     if (legend) {
       h += '<div class="legend">' + Object.keys(STATUS).map(function (k) {
         return stPill(k);
@@ -671,7 +697,7 @@
     }
     h += "</div>";
     if (S.filtersOpen) {
-      h += '<div class="fpanel" id="fpanel">' + (isList
+      h += '<div class="fpanel" id="fpanel">' + (isList && S.lmode === "mes"
         ? '<div class="fld"><span class="lbl">Agrupar por</span><div class="seg" role="group" aria-label="Agrupar por">' +
           [["fecha", "Fecha"], ["estado", "Estado"]].map(function (x) {
             return '<button type="button" data-act="lgroup" data-v="' + x[0] + '" aria-pressed="' +
@@ -863,7 +889,107 @@
   }
 
   /* ---------- Views ---------- */
+  /* Lista «Todos»: todos los meses seguidos. Cada mes con su tema y «Posts X de Y» (y un enlace a sus objetivos);
+     lo publicado va recogido arriba; al entrar se ubica en el mes actual. */
+  function monthHead(ym) {
+    var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
+    var g = S.goals.get("m-" + ym) || {}, st = stats(y, m), tgt = Number(g.postTarget) || 0;
+    var cur = ym === todayStr().slice(0, 7);
+    var first = cur ? "" : ym + "-01";
+    return '<div class="lm-head"><h2>' + MONTHS[m] + " <span>" + y + "</span>" + (cur ? ' <em class="lm-now">este mes</em>' : "") + "</h2>" +
+      '<p class="lm-sub">' + (g.theme ? "<b>" + esc(g.theme) + "</b> · " : "") + "Posts " + st.total +
+      (tgt ? " de " + tgt : "") + "</p>" +
+      '<span class="lm-acts"><button class="btn ghost sm" type="button" data-act="monthobj" data-v="' + ym + '">Objetivos</button>' +
+      (S.canWrite ? '<button class="btn ghost sm" type="button" data-act="add" data-date="' + first + '">+ Post</button>' : "") +
+      "</span></div>";
+  }
+  function daysHtml(items) {
+    var h = "", cur = null;
+    items.forEach(function (p) {
+      if (p.date !== cur) {
+        if (cur !== null) h += "</div></section>";
+        cur = p.date;
+        h += '<section class="day-group"><h3 class="day-h">' + cap(fmtLong(p.date)) +
+          (p.date === todayStr() ? " <span>· hoy</span>" : "") + '</h3><div class="rows">';
+      }
+      h += row(p);
+    });
+    return cur !== null ? h + "</div></section>" : h;
+  }
+  function viewListaTodos() {
+    var h = notices() + filters(false, true);
+    if (!S.loaded.posts && !S.posts.size) {
+      main.innerHTML = h + loadingBlock();
+      return;
+    }
+    if (!S.posts.size) {
+      main.innerHTML = h + emptyAll();
+      return;
+    }
+    var vis = allPosts().filter(function (p) {
+      return passes(p, true);
+    }).sort(cmp);
+    var pub = vis.filter(function (p) {
+      return p.status === "publicado";
+    });
+    var open = vis.filter(function (p) {
+      return p.status !== "publicado";
+    });
+    var nowYm = todayStr().slice(0, 7), months = {};
+    open.forEach(function (p) {
+      if (p.date) (months[p.date.slice(0, 7)] = months[p.date.slice(0, 7)] || []).push(p);
+    });
+    // El mes actual y el siguiente siempre aparecen (para crear posts ahí)
+    var nx = new Date(+nowYm.slice(0, 4), +nowYm.slice(5, 7), 1);
+    months[nowYm] = months[nowYm] || [];
+    months[monthKey(nx.getFullYear(), nx.getMonth())] = months[monthKey(nx.getFullYear(), nx.getMonth())] || [];
+    if (pub.length) {
+      var pm = {};
+      pub.forEach(function (p) {
+        var k = p.date ? p.date.slice(0, 7) : "";
+        (pm[k] = pm[k] || []).push(p);
+      });
+      h += '<section class="lm-pub"><button class="lm-pubtg" type="button" data-act="pubtoggle" aria-expanded="' + S.pubOpen + '">' +
+        CHEV_SVG + "<span>" + stIcon("publicado") + plural(pub.length, "publicado", "publicados") + "</span></button>";
+      if (S.pubOpen) {
+        Object.keys(pm).sort().reverse().forEach(function (k) {
+          h += '<div class="lm-pubm"><h3 class="day-h">' + (k ? MONTHS[+k.slice(5, 7) - 1] + " " + k.slice(0, 4) : "Sin fecha") +
+            " <span>· " + pm[k].length + '</span></h3><div class="rows">' + pm[k].slice().reverse().map(function (p) {
+              return row(p);
+            }).join("") + "</div></div>";
+        });
+      }
+      h += "</section>";
+    }
+    Object.keys(months).sort().forEach(function (ym) {
+      var it = months[ym];
+      h += '<section class="lm" id="lm-' + ym + '">' + monthHead(ym) +
+        (it.length ? daysHtml(it) : '<p class="lm-empty">Nada pendiente este mes' + (activeFilters() ? " con estos filtros" : "") + ".</p>") +
+        "</section>";
+    });
+    var undated = open.filter(function (p) {
+      return !p.date;
+    });
+    if (undated.length) {
+      h += '<section class="lm"><div class="lm-head"><h2>Sin fecha</h2><p class="lm-sub">Banco de ideas · ' + undated.length +
+        '</p></div><div class="rows">' + undated.map(function (p) {
+          return row(p);
+        }).join("") + "</div></section>";
+    }
+    main.innerHTML = h;
+    if (S.lmScroll) {
+      S.lmScroll = false;
+      var sec = document.getElementById("lm-" + nowYm);
+      if (sec) {
+        var top = sec.getBoundingClientRect().top + window.scrollY - 12;
+        setTimeout(function () {
+          window.scrollTo(0, top);
+        }, 0);
+      }
+    }
+  }
   function viewLista() {
+    if (S.lmode === "todos") return viewListaTodos();
     var y = S.cy, m = S.cm;
     var items = allPosts().filter(function (p) {
       return inMonth(p, y, m) && passes(p);
@@ -2863,7 +2989,7 @@
     if (e.target.classList && e.target.classList.contains("hit")) chartLeave(e);
   });
 
-  var DOW_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  var DOW_LONG_DOM = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
   /** Mapa de calor de la audiencia: una sola tinta (más oscuro = más seguidores conectados). */
   function heatmap(a) {
     if (!a || a.length !== 7) {
@@ -2889,13 +3015,13 @@
       h += '<span class="hy">' + DOW[dowMon(new Date(2024, 0, 7 + d))] + "</span>";
       a[d].forEach(function (v, hr) {
         var k = max > min ? 0.08 + 0.92 * (v - min) / (max - min) : 1;
-        h += '<i style="--k:' + (Math.round(k * 100) / 100) + '" title="' + cap(DOW_LONG[d]) + " " + hr +
+        h += '<i style="--k:' + (Math.round(k * 100) / 100) + '" title="' + cap(DOW_LONG_DOM[d]) + " " + hr +
           ":00 · " + fmtNum(v) + ' seguidores conectados"></i>';
       });
     });
     h += "</div>";
     var top = best.slice(0, 3).map(function (b) {
-      return DOW_LONG[b.d] + " a las " + b.h + ":00";
+      return DOW_LONG_DOM[b.d] + " a las " + b.h + ":00";
     });
     return '<p class="hm-top"><b>Mejores momentos:</b> ' + esc(top.join(", ")) + ".</p>" + h +
       '<p class="hint" style="min-height:0"><span>Promedio de seguidores conectados por hora (hora de Venezuela), de los últimos 30 días.</span></p>';
@@ -4339,6 +4465,11 @@
     }
     window.scrollTo(0, toTop ? 0 : sy);
     ensureThumbs();
+    if (S.pendingNew != null && S.loaded.posts) {
+      var nd = S.pendingNew;
+      S.pendingNew = null;
+      openNewPost({ date: nd });
+    }
   }
   function onData(pendingWrites) {
     if (S.view === "detalle") {
@@ -4649,6 +4780,23 @@
         S.cm = Number(el.dataset.m);
         S.selDay = null;
         go("calendario");
+        break;
+      case "lmode":
+        S.lmode = el.dataset.v === "todos" ? "todos" : "mes";
+        try {
+          localStorage.setItem("pc_lmode", S.lmode);
+        } catch (e3) {}
+        S.lmScroll = S.lmode === "todos";
+        render(S.lmode === "mes");
+        break;
+      case "pubtoggle":
+        S.pubOpen = !S.pubOpen;
+        render();
+        break;
+      case "monthobj":
+        S.cy = +el.dataset.v.slice(0, 4);
+        S.cm = +el.dataset.v.slice(5, 7) - 1;
+        go("objetivos");
         break;
       case "lgroup":
         S.lgroup = el.dataset.v;

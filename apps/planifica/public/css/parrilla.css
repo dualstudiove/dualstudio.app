@@ -2116,6 +2116,97 @@
     padding: 4px 11px;
     font-size: 13px;
   }
+  /* Lista «Todos»: todos los meses seguidos */
+  .toolbar .lmode {
+    margin-left: auto;
+  }
+  .lm {
+    margin-top: 28px;
+    scroll-margin-top: 12px;
+  }
+  .lm-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 14px;
+    padding-bottom: 10px;
+    margin-bottom: 6px;
+    border-bottom: 2px solid var(--line);
+  }
+  .lm-head h2 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    margin: 0;
+  }
+  .lm-head h2 span {
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .lm-now {
+    font-style: normal;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-bg);
+    padding: 2px 8px;
+    border-radius: 99px;
+    vertical-align: middle;
+  }
+  .lm-sub {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 14px;
+  }
+  .lm-acts {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .lm-empty {
+    color: var(--ink-3);
+    font-size: 14px;
+    margin: 12px 0 0;
+  }
+  .lm-pub {
+    margin-top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 4px 14px;
+  }
+  .lm-pubtg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    background: none;
+    padding: 10px 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .lm-pubtg span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lm-pubtg .chev {
+    width: 12px;
+    height: 12px;
+    transition: transform .15s;
+  }
+  .lm-pubtg[aria-expanded="false"] .chev {
+    transform: rotate(-90deg);
+  }
+  .lm-pubm {
+    padding-bottom: 10px;
+  }
+
   /* Cabecera del detalle: estado y formato como selectores; «⋯» con acciones */
   .fmtsel {
     display: inline-flex;

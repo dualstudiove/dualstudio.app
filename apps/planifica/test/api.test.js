@@ -153,6 +153,14 @@ test("próximos: posts sin publicar de hoy a 7 días y atrasados, solo de tus cl
   assert.deepEqual((await lectora("/api/proximos")).json.posts.length, 3, "lectura también los ve");
   assert.deepEqual((await ajena("/api/proximos")).json.posts.map((p) => p.title), ["Café hoy"]);
   assert.equal((await admin("/api/proximos")).json.posts.length, 4, "el administrador ve todos los clientes");
+  // Agenda: todos los posts sin publicar de tus clientes (con o sin fecha) y lo publicado reciente
+  const ag = await editora("/api/agenda");
+  assert.equal(ag.status, 200);
+  assert.deepEqual(ag.json.clientes.map((c) => [c.slug, c.rol]), [["laboratorio-rh", "editor"]]);
+  assert.deepEqual(ag.json.posts.map((p) => p.title).sort(), ["Atrasado", "Idea en 3 días", "Listo mañana", "Muy lejos", "Ya publicado"]);
+  assert.ok(ag.json.posts.every((p) => p.cliente === "laboratorio-rh"));
+  assert.equal((await admin("/api/agenda")).json.clientes.length, 2);
+  assert.deepEqual((await ajena("/api/agenda")).json.posts.map((p) => p.title), ["Café hoy"]);
   for (let i = 1; i <= 5; i++) await editora(`/laboratorio-rh/api/publicaciones/pprox000${i}`, { method: "DELETE" });
   await ajena("/cafe-avila/api/publicaciones/pprox0006", { method: "DELETE" });
 });
