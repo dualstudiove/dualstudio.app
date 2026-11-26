@@ -37,6 +37,8 @@ window.PLANIFICA = {
   redes: { conexiones: {}, metricas: {}, cuentaMes: {} },
   api: (ruta, opciones) => api(ruta, opciones),
   url: (ruta) => API + ruta,
+  /** Tus clientes (para elegir con quién se comparte un post en colaboración). */
+  sesion: () => apiRaiz("/api/sesion"),
   /** Pide los datos de nuevo (tras vincular o actualizar métricas) y avisa a la parrilla si cambiaron. */
   refrescar: () => refrescar().then(() => programar()),
 };

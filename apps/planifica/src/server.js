@@ -8,6 +8,7 @@ import { registrarRutas } from "./rutas.js";
 import { registrarAdmin } from "./admin.js";
 import { registrarRedes } from "./redes/rutas.js";
 import { registrarAds } from "./ads.js";
+import { registrarColab } from "./colab.js";
 import { registrarMeta, vueltaMeta } from "./redes/meta.js";
 import { tareaDiaria } from "./redes/sync.js";
 import { asegurarAdminDesdeSecretos, RESERVADOS } from "./sesion.js";
@@ -17,6 +18,7 @@ registrarRutas(router);
 registrarAdmin(router);
 registrarRedes(router);
 registrarAds(router);
+registrarColab(router);
 registrarMeta(router);
 
 export const { app, fetch, scheduled } = crearServidor({

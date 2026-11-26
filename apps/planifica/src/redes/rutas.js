@@ -7,6 +7,7 @@ import { env } from "../env.js";
 import { accesoACliente, exigirEditor, soloAdmin } from "../sesion.js";
 import { borrarImagenes, decodificar, guardarImagen } from "../almacen.js";
 import { tocar } from "../cambios.js";
+import { SQL_COLAB_DE, tocarPost } from "../colab.js";
 import {
   conectarInstagram,
   conexionDe,
@@ -58,8 +59,8 @@ export async function datosDeRedes(clienteId) {
     const f of await db.all(
       `SELECT publicacion_id, red, medio_id, tipo, publicado_en, metricas, actualizado_en, error, miniatura_id,
               miniatura_url IS NOT NULL AS hay_url
-         FROM redes_posts WHERE cliente_id = ?`,
-      [clienteId],
+         FROM redes_posts WHERE cliente_id = ? OR publicacion_id IN (${SQL_COLAB_DE})`,
+      [clienteId, clienteId],
     )
   ) {
     (metricas[f.publicacion_id] ||= {})[f.red] = {
@@ -147,18 +148,23 @@ export function registrarRedes(r) {
     return con;
   };
 
+  /** El vínculo de un post de este cliente o que comparte en colaboración (su cliente_id es la cuenta dueña). */
+  const vinculo = (publicacionId, nombreRed, clienteId) =>
+    db.get(
+      `SELECT * FROM redes_posts WHERE publicacion_id = ? AND red = ?
+         AND (cliente_id = ? OR publicacion_id IN (${SQL_COLAB_DE}))`,
+      [str(publicacionId, 60), red(nombreRed), clienteId, clienteId],
+    );
+
   // Vincular un post: encuentra la publicación de su link y trae sus métricas al momento.
   r.add("POST", "/api/redes/vincular", C, async (ctx) => {
     exigirEditor(ctx);
     const { cliente, body } = ctx;
     await cuotaDiaria(`redes-vincular|${cliente.id}`, 300, "Se alcanzó el límite de vínculos de hoy.");
-    const post = await db.get("SELECT * FROM redes_posts WHERE publicacion_id = ? AND red = ? AND cliente_id = ?", [
-      str(body.publicacion_id, 60),
-      red(body.red),
-      cliente.id,
-    ]);
+    const post = await vinculo(body.publicacion_id, body.red, cliente.id);
     if (!post) return { ok: true, vacio: true };
-    const con = await conectada(cliente, body.red);
+    // En una colaboración, las métricas se leen desde la cuenta dueña
+    const con = await conectada({ id: post.cliente_id }, body.red);
     try {
       return await sincronizar(con, presupuesto(8), { soloPost: post.publicacion_id, forzar: true });
     } catch (e) {
@@ -196,10 +202,7 @@ export function registrarRedes(r) {
   // la achica a 320 px en WebP y la sube. El Worker no la procesa: en el plan gratuito tiene poco tiempo de CPU.
   r.add("GET", "/api/redes/miniatura-remota/:id", C, async (ctx) => {
     exigirEditor(ctx);
-    const f = await db.get(
-      "SELECT miniatura_url FROM redes_posts WHERE publicacion_id = ? AND red = ? AND cliente_id = ?",
-      [ctx.params.id, red(ctx.query.red || "ig"), ctx.cliente.id],
-    );
+    const f = await vinculo(ctx.params.id, ctx.query.red || "ig", ctx.cliente.id);
     if (!f?.miniatura_url) throw new HttpError(404, "No hay miniatura para este post.");
     if (!urlDeImagenPermitida(f.miniatura_url)) throw new HttpError(400, "La dirección de la miniatura no es válida.");
     let res;
@@ -218,21 +221,19 @@ export function registrarRedes(r) {
   r.add("POST", "/api/redes/miniatura", { ...C, maxBody: 600_000 }, async (ctx) => {
     exigirEditor(ctx);
     const { cliente, body, usuario } = ctx;
-    const post = await db.get(
-      "SELECT publicacion_id, red, miniatura_id FROM redes_posts WHERE publicacion_id = ? AND red = ? AND cliente_id = ?",
-      [str(body.publicacion_id, 60), red(body.red || "ig"), cliente.id],
-    );
+    const post = await vinculo(body.publicacion_id, body.red || "ig", cliente.id);
     if (!post) throw new HttpError(404, "Ese post no está vinculado.");
     await cuotaDiaria(`imagenes|${cliente.id}`, 200, "Se alcanzó el límite de imágenes de hoy para este cliente.");
     const { tipo, bytes } = decodificar(body.datos, body.tipo);
-    const { id } = await guardarImagen({ clienteId: cliente.id, tipo, bytes, usuarioId: usuario.id });
+    // La miniatura queda con la cuenta dueña del post (se borra con él)
+    const { id } = await guardarImagen({ clienteId: post.cliente_id, tipo, bytes, usuarioId: usuario.id });
     await db.run("UPDATE redes_posts SET miniatura_id = ? WHERE publicacion_id = ? AND red = ?", [
       id,
       post.publicacion_id,
       post.red,
     ]);
-    if (post.miniatura_id) await borrarImagenes(cliente.id, [post.miniatura_id]);
-    await tocar(cliente.id);
+    if (post.miniatura_id) await borrarImagenes(post.cliente_id, [post.miniatura_id]);
+    await tocarPost(post.publicacion_id);
     return { id };
   });
 

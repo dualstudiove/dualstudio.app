@@ -795,6 +795,106 @@
     return '<button class="tog fmtbtn fmtsel f-' + f + '" type="button" aria-pressed="true" data-act="fmtmenu" aria-haspopup="menu" aria-expanded="false" aria-label="Formato: ' +
       esc(FORMATS[f].label) + '. Cambiar formato">' + fIcon(f) + "<span>" + FORMATS[f].label + "</span>" + CHEV_SVG + "</button>";
   }
+  /* ---------- Colaboración: un post compartido con otros clientes (uno solo, en la parrilla de cada uno) ---------- */
+  function soyDueno(p) {
+    return !p.colab || p.colab.dueno === window.PLANIFICA.cliente;
+  }
+  function colabOtros(p) {
+    return p.colab ? p.colab.cuentas.filter(function (c) {
+      return c.slug !== window.PLANIFICA.cliente;
+    }) : [];
+  }
+  function colabTag(p, short) {
+    if (!p.colab) return "";
+    var names = colabOtros(p).map(function (c) {
+      return c.nombre;
+    });
+    return '<span class="tag colab" title="En colaboración con ' + esc(names.join(", ")) + '">🤝' +
+      (short ? "" : " " + esc(names.length === 1 ? names[0] : plural(names.length, "cuenta", "cuentas"))) + "</span>";
+  }
+  function paintColab(p) {
+    var w = $("#colabWrap");
+    if (!w) return;
+    var otros = colabOtros(p), sig = JSON.stringify(p.colab || null) + S.canWrite;
+    if (w.dataset.sig === sig) return;
+    w.dataset.sig = sig;
+    var txt = otros.length
+      ? "🤝 " + otros.map(function (c) {
+        return esc(c.nombre);
+      }).join(", ")
+      : "Solo esta cuenta";
+    var dueno = p.colab && !soyDueno(p)
+      ? '<span class="colab-own">Se publica desde ' + esc((p.colab.cuentas[0] || {}).nombre || "otra cuenta") + "</span>"
+      : "";
+    w.innerHTML = (S.canWrite
+      ? '<button class="tog colabsel' + (otros.length ? " on" : "") + '" type="button" data-act="colabmenu" aria-haspopup="menu" aria-expanded="false">' +
+        "<span>" + txt + "</span>" + CHEV_SVG + "</button>"
+      : '<span class="tog colabsel">' + txt + "</span>") + dueno;
+  }
+  function openColabMenu(btn) {
+    var p = S.posts.get(S.postId);
+    if (!p) return;
+    window.PLANIFICA.sesion().then(function (ses) {
+      if (S.postId !== p.id) return;
+      var dueno = p.colab ? p.colab.dueno : window.PLANIFICA.cliente;
+      var dentro = {};
+      (p.colab ? p.colab.cuentas : []).forEach(function (c) {
+        if (c.slug !== dueno) dentro[c.slug] = c.nombre;
+      });
+      // Tus clientes editables y los que ya están (aunque no los tengas asignados)
+      var opts = [];
+      (ses.clientes || []).forEach(function (c) {
+        if (c.slug === dueno || !c.activo || (c.rol !== "editor" && !dentro[c.slug])) return;
+        opts.push({ slug: c.slug, nombre: c.nombre });
+      });
+      Object.keys(dentro).forEach(function (sl) {
+        if (!opts.some(function (o) {
+          return o.slug === sl;
+        })) opts.push({ slug: sl, nombre: dentro[sl] });
+      });
+      var html = '<p class="mi-h">Compartir este post con…</p>' + (opts.length
+        ? opts.map(function (o) {
+          return '<button class="mi ck-mi" type="button" role="menuitemcheckbox" aria-checked="' + !!dentro[o.slug] +
+            '" data-act="colabpick" data-v="' + esc(o.slug) + '">' + CHECK_SVG + "<span>" + esc(o.nombre) +
+            (o.slug === window.PLANIFICA.cliente ? " (esta cuenta)" : "") + "</span></button>";
+        }).join("")
+        : '<p class="mi-h">No tienes otros clientes para compartir.</p>') +
+        '<p class="mi-n">Es un solo post: se ve y se edita igual desde cada cuenta. Se publica desde ' +
+        esc(p.colab ? p.colab.cuentas[0].nombre : "esta cuenta") + ".</p>";
+      openMenu(btn, html, "acts-menu colab-menu");
+    }, function () {
+      toast("No se pudo cargar la lista de clientes.");
+    });
+  }
+  function toggleColab(slug) {
+    var p = S.posts.get(S.postId);
+    if (!p || !canW()) return;
+    var dueno = p.colab ? p.colab.dueno : window.PLANIFICA.cliente;
+    var lista = (p.colab ? p.colab.cuentas : []).map(function (c) {
+      return c.slug;
+    }).filter(function (sl) {
+      return sl !== dueno;
+    });
+    var i = lista.indexOf(slug);
+    if (i >= 0) lista.splice(i, 1);
+    else lista.push(slug);
+    closeStMenu(false);
+    flushAll();
+    window.PLANIFICA.api("/api/publicaciones/" + encodeURIComponent(p.id) + "/colab", {
+      method: "PUT",
+      body: { clientes: lista },
+    }).then(function (r) {
+      p.colab = r.colab || undefined;
+      if (!p.colab) delete p.colab;
+      toast(p.colab ? "Colaboración actualizada" : "Ya no se comparte");
+      if (slug === window.PLANIFICA.cliente && i >= 0) {
+        go(S.last || "lista");
+      } else paintDetail();
+      return window.PLANIFICA.refrescar();
+    }, function (e) {
+      toast(e.message || "No se pudo actualizar la colaboración.");
+    });
+  }
   function setFormat(p, v) {
     if (!p || !FORMATS[v] || p.format === v || !canW()) return;
     var patch = { format: v };
@@ -806,7 +906,7 @@
   /** Duplicar: la copia queda en Idea, sin fecha ni link, con el contenido y la producción del original. */
   function duplicatePost(p) {
     if (!p || !canW()) return;
-    var skip = { id: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1, igLink: 1, refImgs: 1, date: 1, time: 1, status: 1 };
+    var skip = { id: 1, createdAt: 1, createdBy: 1, updatedAt: 1, updatedBy: 1, igLink: 1, refImgs: 1, date: 1, time: 1, status: 1, colab: 1 };
     var data = {};
     Object.keys(p).forEach(function (k) {
       if (!skip[k]) data[k] = p[k];
@@ -884,7 +984,7 @@
       '<div><div class="t"><a class="rlink" href="#post-' + esc(p.id) + '" draggable="false">' +
       (p.title ? esc(p.title) : "<em>Sin título</em>") + "</a></div>" +
       '<div class="meta"><span class="tag">' + fIcon(p.format) + f.label + "</span>" +
-      (pl ? '<span class="pl">' + pl + "</span>" : "") + driveLink(p) + igSummary(p) + boostBadge(p) + "</div></div>" +
+      (pl ? '<span class="pl">' + pl + "</span>" : "") + colabTag(p) + driveLink(p) + igSummary(p) + boostBadge(p) + "</div></div>" +
       stSelect(p) + "</div>";
   }
 
@@ -1052,7 +1152,7 @@
       esc(p.title || "Sin título") + '">' +
       '<span class="ct">' + (esc(p.title) || "Sin título") + "</span>" +
       '<span class="cm">' + (p.time ? "<em>" + esc(p.time) + "</em>" : "") + "<i>" +
-      fIcon(p.format) + f.label + "</i>" + (pl ? "<b>" + pl + "</b>" : "") + boostBadge(p, true) + "</span>" +
+      fIcon(p.format) + f.label + "</i>" + (pl ? "<b>" + pl + "</b>" : "") + colabTag(p, true) + boostBadge(p, true) + "</span>" +
       '<span class="cs cs-' + st + '">' + stIcon(st) + esc(STATUS[st]) + "</span></a>";
   }
   function viewCal() {
@@ -3066,11 +3166,12 @@
     }
     return out;
   }
+  /** Impulsos de este cliente en el periodo (los de otras cuentas en posts compartidos no cuentan aquí). */
   function impulsosEn(desde, hasta) {
     var a = desde.slice(0, 7), b = hasta.slice(0, 7);
     return ADS().impulsos.filter(function (i) {
       var k = i.inicio.slice(0, 7);
-      return k >= a && k <= b;
+      return !i.ajeno && k >= a && k <= b;
     });
   }
   function impulsosDe(postId) {
@@ -3366,7 +3467,9 @@
         ? "<b>" + (main.k === "seguidores" ? sgnNum(mv) : fmtNum(mv)) + "</b><span>" + esc(focoLabel(main)) + "</span>" +
           (unit != null ? '<span class="cpc">' + esc(fmtUsd(unit)) + " c/u</span>" : "")
         : '<span class="mut">Sin ' + esc(focoLabel(main)) + "</span>") +
-      (S.canWrite ? '<button class="btn sm ghost" type="button" data-act="impedit" data-id="' + esc(i.id) + '">Editar</button>' : "") +
+      (i.ajeno
+        ? '<span class="mut small">De otra cuenta de la colaboración</span>'
+        : S.canWrite ? '<button class="btn sm ghost" type="button" data-act="impedit" data-id="' + esc(i.id) + '">Editar</button>' : "") +
       "</div></div>";
   }
   function adsSection(r) {
@@ -4021,7 +4124,7 @@
     // Franjas: los días en que hubo al menos un post impulsado activo.
     var bands = [], on = days.map(function (k) {
       return ADS().impulsos.some(function (i) {
-        return i.inicio <= k && (i.fin || today) >= k;
+        return !i.ajeno && i.inicio <= k && (i.fin || today) >= k;
       });
     });
     for (var j = 0; j < on.length; j++) {
@@ -4101,7 +4204,7 @@
       (S.last === "calendario" ? "Calendario" : "Lista") + "</button>" +
       '<div class="dh-right"><span class="saved" id="saveState" aria-live="polite"></span>' +
       (S.canWrite ? '<span id="delWrap"><button class="btn ghost more-btn" type="button" data-act="moremenu" aria-haspopup="menu" aria-expanded="false" aria-label="Más acciones">' + MORE_SVG + "</button></span>" : "") +
-      '<span id="delConfirm" hidden>¿Eliminar este post? <button class="btn sm" type="button" data-act="delno">Cancelar</button> <button class="btn sm danger" type="button" data-act="delyes">Sí, eliminar</button></span></div></div>' +
+      '<span id="delConfirm" hidden><span id="delTxt">¿Eliminar este post?</span> <button class="btn sm" type="button" data-act="delno">Cancelar</button> <button class="btn sm danger" type="button" data-act="delyes" id="delYes">Sí, eliminar</button></span></div></div>' +
       // Cabecera: título y, en una fila, formato · plataformas · fecha y hora
       '<section class="card dhead"><label class="sr" for="f-title">Título</label><input id="f-title" class="in title" data-f="title" type="text" placeholder="Título o idea del post" autocomplete="off"' +
       ro + ">" +
@@ -4109,7 +4212,8 @@
       '<div class="fld"><span class="lbl" id="lbl-fmt">Formato</span><span id="fmtWrap"></span></div>' +
       '<div class="fld"><span class="lbl" id="lbl-plat">Plataformas</span><div class="wrapr" role="group" aria-labelledby="lbl-plat">' +
       platBtns + "</div></div>" +
-      '<div class="fld dm-when"><span class="lbl">Publicación</span>' + dtFields("f", true) + "</div></div></section>" +
+      '<div class="fld dm-when"><span class="lbl">Publicación</span>' + dtFields("f", true) + "</div>" +
+      '<div class="fld"><span class="lbl">Colaboración</span><span id="colabWrap"></span></div></div></section>' +
       '<div class="dtabs seg" role="group" aria-label="Sección del post">' +
       [["contenido", "Contenido"], ["produccion", "Producción"], ["resultados", "Resultados"]].map(function (x) {
         return '<button type="button" data-act="dtab" data-v="' + x[0] + '" id="dtab-' + x[0] + '" aria-pressed="false">' + x[1] + "</button>";
@@ -4394,6 +4498,7 @@
       var v = p[f] == null ? "" : String(p[f]);
       if (el.value !== v) el.value = v;
     });
+    paintColab(p);
     var fw = $("#fmtWrap"), fk = (FORMATS[p.format] ? p.format : "reel") + (S.canWrite ? "w" : "r");
     if (fw && fw.dataset.k !== fk) {
       fw.innerHTML = fmtSelect(p);
@@ -5046,8 +5151,10 @@
       case "moremenu":
         if (stMenuBtn === el) closeStMenu(false);
         else {
+          var mp = S.posts.get(S.postId);
           openMenu(el, '<button class="mi" type="button" role="menuitem" data-act="dup">Duplicar</button>' +
-            '<button class="mi danger" type="button" role="menuitem" data-act="del">Eliminar</button>', "acts-menu", true);
+            '<button class="mi danger" type="button" role="menuitem" data-act="del">' +
+            (mp && !soyDueno(mp) ? "Quitar de esta cuenta" : "Eliminar") + "</button>", "acts-menu", true);
         }
         break;
       case "fmtmenu":
@@ -5067,12 +5174,25 @@
         var fb = $("#fmtWrap button");
         if (fb) fb.focus();
         break;
+      case "colabmenu":
+        if (stMenuBtn === el) closeStMenu(false);
+        else openColabMenu(el);
+        break;
+      case "colabpick":
+        toggleColab(el.dataset.v);
+        break;
       case "dup":
         closeStMenu(false);
         duplicatePost(S.posts.get(S.postId));
         break;
       case "del":
         closeStMenu(false);
+        p = S.posts.get(S.postId);
+        var quitar = p && !soyDueno(p);
+        $("#delTxt").textContent = quitar
+          ? "¿Quitar este post de esta cuenta? Sigue en las demás de la colaboración."
+          : (p && p.colab ? "¿Eliminar este post? Se borra en todas las cuentas de la colaboración." : "¿Eliminar este post?");
+        $("#delYes").textContent = quitar ? "Sí, quitar" : "Sí, eliminar";
         $("#delWrap").hidden = true;
         $("#delConfirm").hidden = false;
         break;
@@ -5081,10 +5201,10 @@
         $("#delConfirm").hidden = true;
         break;
       case "delyes":
-        var id = S.postId;
+        var id = S.postId, dp = S.posts.get(id), soloQuitar = dp && !soyDueno(dp);
         flushAll();
         deletePost(id);
-        toast("Post eliminado");
+        toast(soloQuitar ? "Post quitado de esta cuenta" : "Post eliminado");
         go(S.last || "lista");
         break;
     }

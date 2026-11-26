@@ -9,6 +9,7 @@
 import { cuotaDiaria, db, HttpError, str, uuid } from "@dualstudio/comun/servidor";
 import { accesoACliente, exigirEditor } from "./sesion.js";
 import { tocar } from "./cambios.js";
+import { postDeCliente, SQL_COLAB_DE } from "./colab.js";
 
 const MAX_MONTO = 1_000_000;
 export const OBJETIVOS = new Set(["mensajes", "perfil", "alcance", "clics"]);
@@ -71,10 +72,18 @@ export async function datosDeAds(clienteId) {
   ) {
     presupuestos[f.mes] = { monto: Number(f.monto), notas: f.notas || "" };
   }
+  // También los impulsos de otras cuentas en posts compartidos (colaboración): se ven en el post, marcados «ajeno»,
+  // y no cuentan en el presupuesto de este cliente.
   const impulsos = (await db.all(
-    "SELECT * FROM ads_impulsos WHERE cliente_id = ? AND inicio >= date('now', '-24 months') ORDER BY inicio DESC LIMIT 1000",
-    [clienteId],
-  )).map(impulso);
+    `SELECT * FROM ads_impulsos
+      WHERE inicio >= date('now', '-24 months')
+        AND (cliente_id = ?
+             OR publicacion_id IN (${SQL_COLAB_DE})
+             OR publicacion_id IN (SELECT x.publicacion_id FROM publicaciones_colab x
+                                     JOIN publicaciones p ON p.id = x.publicacion_id WHERE p.cliente_id = ?))
+      ORDER BY inicio DESC LIMIT 1000`,
+    [clienteId, clienteId, clienteId],
+  )).map((f) => ({ ...impulso(f), ...(f.cliente_id !== clienteId ? { ajeno: true } : {}) }));
   return { presupuestos, impulsos };
 }
 
@@ -111,10 +120,7 @@ export function registrarAds(r) {
   async function campos(cliente, b, parcial) {
     const out = {};
     if (!parcial || b.publicacion_id !== undefined) {
-      const p = await db.get("SELECT id FROM publicaciones WHERE id = ? AND cliente_id = ?", [
-        str(b.publicacion_id, 60),
-        cliente.id,
-      ]);
+      const p = await postDeCliente(str(b.publicacion_id, 60), cliente.id);
       if (!p) throw new HttpError(400, "Elige el post que se impulsó.");
       out.publicacion_id = p.id;
     }

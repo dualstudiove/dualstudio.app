@@ -188,7 +188,9 @@ function filaProximo(p, hoy) {
   return `<a class="prox" href="${esc(`${BASE}/${p.cliente.slug}#post-${p.id}`)}">
     <span class="prox-dia">${esc(fechaCorta(p.date, hoy))}</span>
     <span class="prox-txt"><b>${p.title ? esc(p.title) : "<em>Sin título</em>"}</b>
-      <span>${esc(p.cliente.nombre)} · ${esc(FORMATOS[p.format] || "Post")}${redes ? ` · ${esc(redes)}` : ""}</span></span>
+      <span>${esc(p.colab ? `🤝 ${p.colab.join(", ")}` : p.cliente.nombre)} · ${esc(FORMATOS[p.format] || "Post")}${
+    redes ? ` · ${esc(redes)}` : ""
+  }</span></span>
     <span class="prox-st st-${esc(p.status)}">${esc(ESTADOS[p.status] || "Idea")}</span></a>`;
 }
 
@@ -267,7 +269,8 @@ async function cargarAgenda() {
 function filaAgenda(p, a, cli) {
   const color = cli.color;
   const redes = p.platforms.map((r) => REDES[r]).filter(Boolean).join(" · ");
-  const meta = [cli.nombre, FORMATOS[p.format] || "Post", redes, p.time].filter(Boolean).map(esc).join(" · ");
+  const quien = p.colab ? `🤝 ${p.colab.join(", ")}` : cli.nombre;
+  const meta = [quien, FORMATOS[p.format] || "Post", redes, p.time].filter(Boolean).map(esc).join(" · ");
   const editable = cli.rol === "editor";
   const estado = editable
     ? `<label class="sr" for="ag-st-${esc(p.id)}">Estado de ${esc(p.title || "Sin título")}</label><select id="ag-st-${

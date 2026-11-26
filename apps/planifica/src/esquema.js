@@ -174,11 +174,21 @@ CREATE TABLE IF NOT EXISTS ads_impulsos (
 CREATE INDEX IF NOT EXISTS idx_ads_impulsos_cliente ON ads_impulsos (cliente_id, inicio);
 `;
 
+// Colaboraciones: otros clientes que comparten un post (el dueño es publicaciones.cliente_id).
+export const TABLAS_COLAB = `
+CREATE TABLE IF NOT EXISTS publicaciones_colab (
+  publicacion_id TEXT NOT NULL REFERENCES publicaciones(id) ON DELETE CASCADE,
+  cliente_id     TEXT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  PRIMARY KEY (publicacion_id, cliente_id)
+);
+CREATE INDEX IF NOT EXISTS idx_publicaciones_colab_cliente ON publicaciones_colab (cliente_id);
+`;
+
 const esquemaCompleto = crearEsquema({
   base: ESQUEMA_BASE,
   testigo: "usuarios",
   columnas: COLUMNAS,
-  tablas: TABLAS_REDES + TABLAS_ADS,
+  tablas: TABLAS_REDES + TABLAS_ADS + TABLAS_COLAB,
 });
 
 /** Huella del esquema: cambia sola cuando cambia algo de lo que se aplica (tablas, columnas, índices). */
@@ -191,7 +201,7 @@ function huella(texto) {
   return h.toString(16);
 }
 export const VERSION_ESQUEMA = huella(
-  [ESQUEMA_BASE, TABLAS_REDES, TABLAS_ADS, JSON.stringify(COLUMNAS)].join("\n"),
+  [ESQUEMA_BASE, TABLAS_REDES, TABLAS_ADS, TABLAS_COLAB, JSON.stringify(COLUMNAS)].join("\n"),
 );
 
 /**

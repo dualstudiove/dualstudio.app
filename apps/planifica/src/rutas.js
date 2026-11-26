@@ -21,6 +21,7 @@ import {
   verifyPassword,
 } from "@dualstudio/comun/servidor";
 import { env } from "./env.js";
+import { infoColab, participantes, postDeCliente, SQL_COLAB_DE, tocarPost } from "./colab.js";
 import {
   accesoACliente,
   clientesDe,
@@ -87,6 +88,15 @@ const usuarioPublico = (u) => ({
   es_admin: !!u.es_admin,
 });
 
+/** Si dos clientes comparten algún post (dueño o colaborador de una misma publicación). */
+async function compartenPost(a, b) {
+  const todos = "SELECT id AS pid, cliente_id AS cid FROM publicaciones UNION ALL SELECT publicacion_id, cliente_id FROM publicaciones_colab";
+  return !!(await db.get(
+    `SELECT 1 FROM (${todos}) x JOIN (${todos}) y ON x.pid = y.pid WHERE x.cid = ? AND y.cid = ? LIMIT 1`,
+    [a, b],
+  ));
+}
+
 const ATRASO_MAX = 30; // «Atrasados»: posts sin publicar con fecha de hasta 30 días atrás
 const DIAS_PROXIMOS = 7; // hoy y los 7 días siguientes
 const PUBLICADOS_AGENDA = 90; // la Agenda muestra lo publicado de los últimos 90 días
@@ -141,58 +151,25 @@ export function registrarRutas(r) {
 
   // «Próximos» del inicio: posts sin publicar de los clientes activos que tienes asignados, con fecha desde hace
   // ATRASO_MAX días (los atrasados) hasta dentro de DIAS_PROXIMOS días.
-  r.add("GET", "/api/proximos", { auth: conSesion }, async ({ usuario }) => {
-    const dia = hoy();
-    const clientes = usuario.es_admin
-      ? "SELECT id FROM clientes WHERE activo = 1"
-      : "SELECT a.cliente_id FROM accesos a JOIN clientes c ON c.id = a.cliente_id WHERE a.usuario_id = ? AND c.activo = 1";
-    const filas = await db.all(
-      `SELECT p.id, p.datos, c.slug, c.nombre
-         FROM publicaciones p JOIN clientes c ON c.id = p.cliente_id
-        WHERE p.cliente_id IN (${clientes})
-          AND json_extract(p.datos, '$.date') BETWEEN ? AND ?
-          AND COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado'
-        ORDER BY json_extract(p.datos, '$.date'), c.nombre`,
-      [...(usuario.es_admin ? [] : [usuario.id]), sumarDias(dia, -ATRASO_MAX), sumarDias(dia, DIAS_PROXIMOS)],
-    );
-    const posts = [];
-    for (const f of filas) {
-      let d;
-      try {
-        d = JSON.parse(f.datos);
-      } catch {
-        continue;
-      }
-      posts.push({
-        id: f.id,
-        cliente: { slug: f.slug, nombre: f.nombre },
-        title: typeof d.title === "string" ? d.title.slice(0, 200) : "",
-        format: d.format || "reel",
-        platforms: Array.isArray(d.platforms) ? d.platforms : [],
-        date: d.date,
-        status: d.status || "idea",
-      });
-    }
-    return { hoy: dia, hasta: sumarDias(dia, DIAS_PROXIMOS), posts };
-  });
-
-  // Agenda del inicio: los posts de todos los clientes activos que tienes asignados. Todo lo que no está publicado
-  // (con o sin fecha) y lo publicado de los últimos PUBLICADOS_AGENDA días.
-  r.add("GET", "/api/agenda", { auth: conSesion }, async ({ usuario }) => {
-    const dia = hoy();
-    const clientes = (await clientesDe(usuario)).filter((c) => c.activo);
-    if (!clientes.length) return { hoy: dia, clientes: [], posts: [] };
-    const porId = new Map(clientes.map((c) => [c.id, c]));
-    const filtro = usuario.es_admin
-      ? "SELECT id FROM clientes WHERE activo = 1"
-      : "SELECT a.cliente_id FROM accesos a JOIN clientes c ON c.id = a.cliente_id WHERE a.usuario_id = ? AND c.activo = 1";
+  /**
+   * Posts de los clientes activos que tienes asignados (también los que comparten en colaboración, una sola vez)
+   * que cumplen `condicion`. Cada uno con el cliente en el que se muestra (el dueño si lo tienes; si no, uno de los
+   * tuyos que lo comparte) y, si es colaboración, las cuentas.
+   */
+  async function postsVisibles(usuario, condicion, params) {
+    const mios = (await clientesDe(usuario)).filter((c) => c.activo);
+    if (!mios.length) return { mios, posts: [] };
+    const porId = new Map(mios.map((c) => [c.id, c]));
+    const porSlug = new Map(mios.map((c) => [c.slug, c]));
+    const ids = mios.map((c) => c.id), marcas = ids.map(() => "?").join(",");
     const filas = await db.all(
       `SELECT p.id, p.cliente_id, p.datos FROM publicaciones p
-        WHERE p.cliente_id IN (${filtro})
-          AND (COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado'
-               OR json_extract(p.datos, '$.date') >= ?)`,
-      [...(usuario.es_admin ? [] : [usuario.id]), sumarDias(dia, -PUBLICADOS_AGENDA)],
+        WHERE (p.cliente_id IN (${marcas})
+               OR p.id IN (SELECT publicacion_id FROM publicaciones_colab WHERE cliente_id IN (${marcas})))
+          AND ${condicion}`,
+      [...ids, ...ids, ...params],
     );
+    const colab = await infoColab(filas.map((f) => f.id));
     const posts = [];
     for (const f of filas) {
       let d;
@@ -201,11 +178,13 @@ export function registrarRutas(r) {
       } catch {
         continue;
       }
-      const c = porId.get(f.cliente_id);
+      const cx = colab[f.id];
+      const c = porId.get(f.cliente_id) || (cx && cx.cuentas.map((x) => porSlug.get(x.slug)).find(Boolean));
       if (!c) continue;
       posts.push({
         id: f.id,
-        cliente: c.slug,
+        cliente: c,
+        colab: cx ? cx.cuentas.map((x) => x.nombre) : null,
         title: typeof d.title === "string" ? d.title.slice(0, 200) : "",
         format: d.format || "reel",
         platforms: Array.isArray(d.platforms) ? d.platforms : [],
@@ -214,10 +193,40 @@ export function registrarRutas(r) {
         status: d.status || "idea",
       });
     }
+    return { mios, posts };
+  }
+
+  // «Próximos» del inicio: posts sin publicar de los clientes activos que tienes asignados, con fecha desde hace
+  // ATRASO_MAX días (los atrasados) hasta dentro de DIAS_PROXIMOS días.
+  r.add("GET", "/api/proximos", { auth: conSesion }, async ({ usuario }) => {
+    const dia = hoy();
+    const { posts } = await postsVisibles(
+      usuario,
+      `json_extract(p.datos, '$.date') BETWEEN ? AND ?
+       AND COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado'`,
+      [sumarDias(dia, -ATRASO_MAX), sumarDias(dia, DIAS_PROXIMOS)],
+    );
+    posts.sort((a, b) => a.date.localeCompare(b.date) || a.cliente.nombre.localeCompare(b.cliente.nombre));
     return {
       hoy: dia,
-      clientes: clientes.map((c) => ({ slug: c.slug, nombre: c.nombre, handle: c.handle, rol: c.rol })),
-      posts,
+      hasta: sumarDias(dia, DIAS_PROXIMOS),
+      posts: posts.map((p) => ({ ...p, cliente: { slug: p.cliente.slug, nombre: p.cliente.nombre } })),
+    };
+  });
+
+  // Agenda del inicio: los posts de todos los clientes activos que tienes asignados. Todo lo que no está publicado
+  // (con o sin fecha) y lo publicado de los últimos PUBLICADOS_AGENDA días.
+  r.add("GET", "/api/agenda", { auth: conSesion }, async ({ usuario }) => {
+    const dia = hoy();
+    const { mios, posts } = await postsVisibles(
+      usuario,
+      `(COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado' OR json_extract(p.datos, '$.date') >= ?)`,
+      [sumarDias(dia, -PUBLICADOS_AGENDA)],
+    );
+    return {
+      hoy: dia,
+      clientes: mios.map((c) => ({ slug: c.slug, nombre: c.nombre, handle: c.handle, rol: c.rol })),
+      posts: posts.map((p) => ({ ...p, cliente: p.cliente.slug })),
     };
   });
 
@@ -261,10 +270,13 @@ export function registrarRutas(r) {
     if (query.desde !== undefined && Number(query.desde) === version) {
       return { sin_cambios: true, version };
     }
-    const publicaciones =
-      (await db.all("SELECT * FROM publicaciones WHERE cliente_id = ?", [cliente.id])).map(
-        publicacion,
-      );
+    // Las suyas y las que comparte en colaboración (cada una con su «colab»: dueño y cuentas).
+    const publicaciones = (await db.all(
+      `SELECT * FROM publicaciones WHERE cliente_id = ? OR id IN (${SQL_COLAB_DE})`,
+      [cliente.id, cliente.id],
+    )).map(publicacion);
+    const colab = await infoColab(publicaciones.map((p) => p.id));
+    for (const p of publicaciones) if (colab[p.id]) p.colab = colab[p.id];
     const objetivos = (await db.all("SELECT * FROM objetivos WHERE cliente_id = ?", [cliente.id]))
       .map(objetivo);
     const ids = new Set(
@@ -331,30 +343,33 @@ export function registrarRutas(r) {
   r.add("PATCH", "/api/publicaciones/:id", C, async (ctx) => {
     await escritura(ctx);
     const { cliente, usuario, body, params } = ctx;
-    const f = await db.get("SELECT datos FROM publicaciones WHERE id = ? AND cliente_id = ?", [
-      params.id,
-      cliente.id,
-    ]);
+    // También un post en colaboración, desde cualquiera de sus clientes (es uno solo)
+    const f = await postDeCliente(params.id, cliente.id);
     if (!f) throw new HttpError(404, "La publicación no existe. Puede que se haya eliminado.");
     const cambios = validarCambiosPublicacion(body.cambios);
     const datos = unir(json(f.datos), cambios, "publicacion");
     await db.run(
-      "UPDATE publicaciones SET datos = ?, actualizado_en = ?, actualizado_por = ? WHERE id = ? AND cliente_id = ?",
-      [JSON.stringify(datos), Date.now(), usuario.id, params.id, cliente.id],
+      "UPDATE publicaciones SET datos = ?, actualizado_en = ?, actualizado_por = ? WHERE id = ?",
+      [JSON.stringify(datos), Date.now(), usuario.id, f.id],
     );
-    if ("igLink" in cambios) await alCambiarLink(cliente.id, params.id, "ig", cambios.igLink);
-    await tocar(cliente.id);
+    // El link y sus métricas van con la cuenta dueña (desde ella se publica)
+    if ("igLink" in cambios) await alCambiarLink(f.cliente_id, f.id, "ig", cambios.igLink);
+    await tocarPost(f.id);
     return { ok: true };
   });
 
   r.add("DELETE", "/api/publicaciones/:id", C, async (ctx) => {
     await escritura(ctx);
     const { cliente, params } = ctx;
-    const f = await db.get("SELECT datos FROM publicaciones WHERE id = ? AND cliente_id = ?", [
-      params.id,
-      cliente.id,
-    ]);
+    const f = await postDeCliente(params.id, cliente.id);
     if (!f) return { ok: true };
+    const quienes = await participantes(f.id);
+    if (f.cliente_id !== cliente.id) {
+      // Un cliente que solo comparte el post lo quita de su parrilla; el post sigue en las demás.
+      await db.run("DELETE FROM publicaciones_colab WHERE publicacion_id = ? AND cliente_id = ?", [f.id, cliente.id]);
+      await tocarPost(f.id, [cliente.id]);
+      return { ok: true, quitado: true };
+    }
     // Las miniaturas de sus métricas también se van.
     const miniaturas = (await db.all(
       "SELECT miniatura_id FROM redes_posts WHERE publicacion_id = ? AND miniatura_id IS NOT NULL",
@@ -367,7 +382,7 @@ export function registrarRutas(r) {
     // Sus imágenes se van con ella, para no ocupar espacio de más.
     const imgs = (json(f.datos).refImgs || []).map((x) => x && x.id).concat(miniaturas);
     await borrarImagenes(cliente.id, imgs);
-    await tocar(cliente.id);
+    for (const id of new Set([cliente.id, ...(quienes ? quienes.otros : [])])) await tocar(id);
     return { ok: true };
   });
 
@@ -423,7 +438,12 @@ export function registrarRutas(r) {
   });
 
   r.add("GET", "/api/imagenes/:id", C, async ({ cliente, params }) => {
-    const img = await leerImagen(cliente.id, params.id);
+    // Una imagen de otro cliente se ve si los dos comparten algún post (colaboración)
+    let img = await leerImagen(cliente.id, params.id);
+    if (!img) {
+      const otro = await db.get("SELECT cliente_id FROM imagenes WHERE id = ?", [params.id]);
+      if (otro && await compartenPost(cliente.id, otro.cliente_id)) img = await leerImagen(otro.cliente_id, params.id);
+    }
     if (!img) throw new HttpError(404, "La imagen no existe.");
     // El contenido de una imagen nunca cambia (cada una tiene su id): el navegador la guarda y no la vuelve a pedir.
     return new Raw(img.bytes, img.tipo, {
