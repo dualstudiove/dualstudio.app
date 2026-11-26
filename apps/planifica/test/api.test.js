@@ -135,7 +135,7 @@ test("cada quien ve solo sus clientes", async () => {
   assert.deepEqual(s.json.clientes.map((c) => [c.slug, c.rol]), [["laboratorio-rh", "lector"]]);
 });
 
-test("próximos: posts sin publicar de hoy a 7 días y atrasados, solo de tus clientes", async () => {
+test("agenda (y próximos): los posts de tus clientes, sin publicar y lo publicado reciente", async () => {
   const d = (n) => sumarDias(hoy(), n);
   const crear = (quien, cli, id, datos) =>
     quien(`/${cli}/api/publicaciones`, { method: "POST", body: { id, datos: { format: "reel", platforms: ["ig"], ...datos } } });
@@ -145,15 +145,6 @@ test("próximos: posts sin publicar de hoy a 7 días y atrasados, solo de tus cl
   await crear(editora, "laboratorio-rh", "pprox0004", { title: "Atrasado", date: d(-5), status: "produccion" });
   await crear(editora, "laboratorio-rh", "pprox0005", { title: "Muy lejos", date: d(20), status: "idea" });
   await crear(ajena, "cafe-avila", "pprox0006", { title: "Café hoy", date: d(0), status: "listo" });
-  const ed = await editora("/api/proximos");
-  assert.equal(ed.status, 200);
-  assert.deepEqual(ed.json.posts.map((p) => p.title), ["Atrasado", "Listo mañana", "Idea en 3 días"]);
-  assert.equal(ed.json.posts[1].cliente.slug, "laboratorio-rh");
-  assert.equal(ed.json.posts[1].status, "listo");
-  assert.deepEqual((await lectora("/api/proximos")).json.posts.length, 3, "lectura también los ve");
-  assert.deepEqual((await ajena("/api/proximos")).json.posts.map((p) => p.title), ["Café hoy"]);
-  assert.equal((await admin("/api/proximos")).json.posts.length, 4, "el administrador ve todos los clientes");
-  // Agenda: todos los posts sin publicar de tus clientes (con o sin fecha) y lo publicado reciente
   const ag = await editora("/api/agenda");
   assert.equal(ag.status, 200);
   assert.deepEqual(ag.json.clientes.map((c) => [c.slug, c.rol]), [["laboratorio-rh", "editor"]]);
@@ -161,6 +152,8 @@ test("próximos: posts sin publicar de hoy a 7 días y atrasados, solo de tus cl
   assert.ok(ag.json.posts.every((p) => p.cliente === "laboratorio-rh"));
   assert.equal((await admin("/api/agenda")).json.clientes.length, 2);
   assert.deepEqual((await ajena("/api/agenda")).json.posts.map((p) => p.title), ["Café hoy"]);
+  assert.equal((await lectora("/api/agenda")).json.posts.length, 5, "lectura también los ve");
+  assert.equal((await admin("/api/agenda")).json.posts.length, 6, "el administrador ve todos los clientes");
   for (let i = 1; i <= 5; i++) await editora(`/laboratorio-rh/api/publicaciones/pprox000${i}`, { method: "DELETE" });
   await ajena("/cafe-avila/api/publicaciones/pprox0006", { method: "DELETE" });
 });

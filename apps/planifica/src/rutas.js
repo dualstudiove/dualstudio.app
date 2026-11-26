@@ -97,8 +97,6 @@ async function compartenPost(a, b) {
   ));
 }
 
-const ATRASO_MAX = 30; // «Atrasados»: posts sin publicar con fecha de hasta 30 días atrás
-const DIAS_PROXIMOS = 7; // hoy y los 7 días siguientes
 const PUBLICADOS_AGENDA = 90; // la Agenda muestra lo publicado de los últimos 90 días
 
 export function registrarRutas(r) {
@@ -149,8 +147,6 @@ export function registrarRutas(r) {
     };
   });
 
-  // «Próximos» del inicio: posts sin publicar de los clientes activos que tienes asignados, con fecha desde hace
-  // ATRASO_MAX días (los atrasados) hasta dentro de DIAS_PROXIMOS días.
   /**
    * Posts de los clientes activos que tienes asignados (también los que comparten en colaboración, una sola vez)
    * que cumplen `condicion`. Cada uno con el cliente en el que se muestra (el dueño si lo tienes; si no, uno de los
@@ -196,26 +192,8 @@ export function registrarRutas(r) {
     return { mios, posts };
   }
 
-  // «Próximos» del inicio: posts sin publicar de los clientes activos que tienes asignados, con fecha desde hace
-  // ATRASO_MAX días (los atrasados) hasta dentro de DIAS_PROXIMOS días.
-  r.add("GET", "/api/proximos", { auth: conSesion }, async ({ usuario }) => {
-    const dia = hoy();
-    const { posts } = await postsVisibles(
-      usuario,
-      `json_extract(p.datos, '$.date') BETWEEN ? AND ?
-       AND COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado'`,
-      [sumarDias(dia, -ATRASO_MAX), sumarDias(dia, DIAS_PROXIMOS)],
-    );
-    posts.sort((a, b) => a.date.localeCompare(b.date) || a.cliente.nombre.localeCompare(b.cliente.nombre));
-    return {
-      hoy: dia,
-      hasta: sumarDias(dia, DIAS_PROXIMOS),
-      posts: posts.map((p) => ({ ...p, cliente: { slug: p.cliente.slug, nombre: p.cliente.nombre } })),
-    };
-  });
-
-  // Agenda del inicio: los posts de todos los clientes activos que tienes asignados. Todo lo que no está publicado
-  // (con o sin fecha) y lo publicado de los últimos PUBLICADOS_AGENDA días.
+  // Agenda y Próximos del inicio: los posts de todos los clientes activos que tienes asignados. Todo lo que no está
+  // publicado (con o sin fecha) y lo publicado de los últimos PUBLICADOS_AGENDA días.
   r.add("GET", "/api/agenda", { auth: conSesion }, async ({ usuario }) => {
     const dia = hoy();
     const { mios, posts } = await postsVisibles(

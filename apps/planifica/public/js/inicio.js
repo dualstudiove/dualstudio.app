@@ -133,11 +133,11 @@ function vistaClientes(s) {
     $("#tab-proximos").hidden = t !== "proximos";
     $("#tab-agenda").hidden = t !== "agenda";
     $("#tab-clientes").hidden = t !== "clientes";
-    if (t === "agenda" && !agenda.datos && !agenda.cargando) cargarAgenda();
+    if (t === "agenda") irAlMesActual();
   };
   window.onhashchange = mostrar;
   mostrar();
-  cargarProximos();
+  cargarDatos();
 
   $("#salir").addEventListener("click", async () => {
     await api("/api/logout", { method: "POST" }).catch(() => {});
@@ -168,66 +168,10 @@ function vistaClientes(s) {
     }));
 }
 
-// ── Próximos: lo que hay que publicar en los próximos días, de todos tus clientes ──
+// ── Próximos y Agenda: los posts de todos tus clientes (una sola consulta, las mismas tarjetas) ──
 const ESTADOS = { idea: "Idea", contenido: "Contenido", porproducir: "Por producir", produccion: "En producción", listo: "Por publicar" };
 const FORMATOS = { reel: "Reel", carrusel: "Carrusel", foto: "Foto", historia: "Historia", diseno: "Diseño" };
 const REDES = { ig: "IG", tt: "TT" };
-
-function fechaCorta(dia, hoy) {
-  const d = new Date(`${dia}T12:00:00`), h = new Date(`${hoy}T12:00:00`);
-  const dif = Math.round((d - h) / 86_400_000);
-  if (dif === 0) return "Hoy";
-  if (dif === 1) return "Mañana";
-  if (dif === -1) return "Ayer";
-  const t = d.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
-  return t.charAt(0).toUpperCase() + t.slice(1);
-}
-
-function filaProximo(p, hoy) {
-  const redes = p.platforms.map((r) => REDES[r]).filter(Boolean).join(" · ");
-  return `<a class="prox" href="${esc(`${BASE}/${p.cliente.slug}#post-${p.id}`)}">
-    <span class="prox-dia">${esc(fechaCorta(p.date, hoy))}</span>
-    <span class="prox-txt"><b>${p.title ? esc(p.title) : "<em>Sin título</em>"}</b>
-      <span>${esc(p.colab ? `🤝 ${p.colab.join(", ")}` : p.cliente.nombre)} · ${esc(FORMATOS[p.format] || "Post")}${
-    redes ? ` · ${esc(redes)}` : ""
-  }</span></span>
-    <span class="prox-st st-${esc(p.status)}">${esc(ESTADOS[p.status] || "Idea")}</span></a>`;
-}
-
-function grupoProximos(clase, titulo, ayuda, lista, hoy) {
-  if (!lista.length) return "";
-  return `<div class="prox-grupo ${clase}"><h3>${titulo} <span class="n">${lista.length}</span></h3>
-    <p class="muted small">${ayuda}</p>
-    <div class="prox-lista">${lista.map((p) => filaProximo(p, hoy)).join("")}</div></div>`;
-}
-
-async function cargarProximos() {
-  const caja = $("#tab-proximos");
-  let r;
-  try {
-    r = await api("/api/proximos");
-  } catch (e) {
-    caja.innerHTML = `<div class="notice bad">${icon("warn")}<div>${esc(e.message)}</div></div>`;
-    return;
-  }
-  if (!document.body.contains(caja)) return;
-  const atrasados = r.posts.filter((p) => p.date < r.hoy);
-  const porPublicar = r.posts.filter((p) => p.date >= r.hoy && p.status === "listo");
-  const noListos = r.posts.filter((p) => p.date >= r.hoy && p.status !== "listo");
-  const n = $("#n-prox");
-  if (n) n.textContent = r.posts.length ? String(r.posts.length) : "";
-  caja.innerHTML = r.posts.length
-    ? grupoProximos("atrasados", "Atrasados", "Ya pasó su fecha y aún no se publican.", atrasados, r.hoy) +
-      grupoProximos("listos", "Por publicar", "Listos para salir hoy y en los próximos 7 días.", porPublicar, r.hoy) +
-      grupoProximos(
-        "pendientes",
-        "Aún no listos",
-        "Tienen fecha en los próximos 7 días pero todavía no están por publicar.",
-        noListos,
-        r.hoy,
-      )
-    : `<div class="empty">${icon("empty")}<p>Nada pendiente</p><span>No hay posts sin publicar con fecha en los próximos 7 días.</span></div>`;
-}
 
 // ── Agenda: los posts de todos tus clientes, en una sola lista por meses ──
 // Cada post lleva el color de su cliente; arriba, chips para mostrar u ocultar clientes. Lo publicado va recogido
@@ -249,21 +193,68 @@ function guardarOcultos() {
   } catch {}
 }
 
-async function cargarAgenda() {
-  const caja = $("#tab-agenda");
+async function cargarDatos() {
   agenda.cargando = true;
   try {
     agenda.datos = await api("/api/agenda");
   } catch (e) {
-    caja.innerHTML = `<div class="notice bad">${icon("warn")}<div>${esc(e.message)}</div></div>`;
+    for (const id of ["#tab-proximos", "#tab-agenda"]) {
+      const caja = $(id);
+      if (caja) caja.innerHTML = `<div class="notice bad">${icon("warn")}<div>${esc(e.message)}</div></div>`;
+    }
     return;
   } finally {
     agenda.cargando = false;
   }
-  pintarAgenda();
-  // Al abrir, se ubica en el mes actual
-  const sec = document.getElementById(`ag-${agenda.datos.hoy.slice(0, 7)}`);
+  pintar();
+  if (location.hash === "#agenda") irAlMesActual();
+}
+
+/** La Agenda se ubica en el mes actual al abrirla. */
+function irAlMesActual() {
+  const sec = agenda.datos && document.getElementById(`ag-${agenda.datos.hoy.slice(0, 7)}`);
   if (sec) window.scrollTo(0, sec.getBoundingClientRect().top + window.scrollY - 12);
+}
+
+function pintar() {
+  pintarProximos();
+  pintarAgenda();
+}
+
+/** Cada cliente con su color (el mismo en Próximos y en la Agenda). */
+function clientesConColor(a) {
+  return new Map(a.clientes.map((c, i) => [c.slug, { ...c, color: COLORES[i % COLORES.length] }]));
+}
+
+/**
+ * Próximos: lo que viene pronto, con las tarjetas de la Agenda. Atrasados (fecha de hasta 30 días atrás y sin
+ * publicar), Por publicar (listos, de hoy a 7 días) y Aún no listos (con fecha de hoy a 7 días).
+ */
+function pintarProximos() {
+  const caja = $("#tab-proximos"), a = agenda.datos;
+  if (!caja || !a) return;
+  const clientes = clientesConColor(a);
+  const suma = (dia, n) => {
+    const d = new Date(`${dia}T12:00:00`);
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const desde = suma(a.hoy, -30), hasta = suma(a.hoy, 7);
+  const posts = a.posts.filter((p) => p.status !== "publicado" && p.date && p.date >= desde && p.date <= hasta && clientes.has(p.cliente))
+    .sort((x, y) => x.date.localeCompare(y.date) || (x.time || "").localeCompare(y.time || ""));
+  const fila = (p) => filaAgenda(p, a, clientes.get(p.cliente));
+  const grupo = (clase, titulo, ayuda, lista) =>
+    lista.length
+      ? `<section class="ag-mes"><h3 class="ag-dia${clase}">${titulo} <span>· ${plural(lista.length, "post", "posts")} · ${ayuda}</span></h3>` +
+        `<div class="ag-rows">${lista.map(fila).join("")}</div></section>`
+      : "";
+  const n = $("#n-prox");
+  if (n) n.textContent = posts.length ? String(posts.length) : "";
+  caja.innerHTML = posts.length
+    ? grupo(" ag-tarde", "Atrasados", "ya pasó su fecha y aún no se publican", posts.filter((p) => p.date < a.hoy)) +
+      grupo("", "Por publicar", "listos para hoy y los próximos 7 días", posts.filter((p) => p.date >= a.hoy && p.status === "listo")) +
+      grupo("", "Aún no listos", "con fecha en los próximos 7 días", posts.filter((p) => p.date >= a.hoy && p.status !== "listo"))
+    : `<div class="empty">${icon("empty")}<p>Nada pendiente</p><span>No hay posts sin publicar con fecha en los próximos 7 días.</span></div>`;
 }
 
 // Tarjetas como las de la Lista de la parrilla: fecha a la izquierda, título, etiquetas y estado (con su menú).
@@ -321,7 +312,7 @@ function filaAgenda(p, a, cli) {
 function pintarAgenda() {
   const caja = $("#tab-agenda"), a = agenda.datos;
   if (!caja || !a) return;
-  const clientes = new Map(a.clientes.map((c, i) => [c.slug, { ...c, color: COLORES[i % COLORES.length] }]));
+  const clientes = clientesConColor(a);
   const editables = a.clientes.filter((c) => c.rol === "editor");
   const posts = a.posts.filter((p) => clientes.has(p.cliente) && !agenda.ocultos.has(p.cliente))
     .sort((x, y) => (x.date || "9999").localeCompare(y.date || "9999") || (x.time || "").localeCompare(y.time || ""));
@@ -404,13 +395,13 @@ document.addEventListener("click", (e) => {
     if (agenda.ocultos.has(b.dataset.v)) agenda.ocultos.delete(b.dataset.v);
     else agenda.ocultos.add(b.dataset.v);
     guardarOcultos();
-    pintarAgenda();
+    pintar();
   } else if (t === "pub") {
     agenda.pubAbierto = !agenda.pubAbierto;
-    pintarAgenda();
+    pintar();
   } else if (t === "ideas") {
     agenda.ideasAbiertas = !agenda.ideasAbiertas;
-    pintarAgenda();
+    pintar();
   } else if (t === "nuevo") menuNuevoPost(b);
   else if (t === "stmenu") {
     if (b.getAttribute("aria-expanded") === "true") cerrarMenuEstado();
@@ -461,7 +452,7 @@ async function cambiarEstado(id, cli, estado) {
   if (!p || p.status === estado) return;
   const antes = p.status;
   p.status = estado;
-  pintarAgenda();
+  pintar();
   try {
     await apiCliente(p.cliente, `/api/publicaciones/${encodeURIComponent(p.id)}`, {
       method: "PATCH",
@@ -471,7 +462,7 @@ async function cambiarEstado(id, cli, estado) {
   } catch (err) {
     p.status = antes;
     toast(err.message || "No se pudo cambiar el estado.");
-    pintarAgenda();
+    pintar();
   }
 }
 

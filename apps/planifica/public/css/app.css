@@ -160,130 +160,15 @@
   }
 
   /* Tu cuenta */
-  /* Inicio: pestañas Próximos | Clientes */
+  /* Inicio: pestañas Próximos | Agenda | Clientes */
   .ini-tabs {
     margin: 8px 0 20px;
   }
   .ini-panel[hidden] {
     display: none;
   }
-  .prox-grupo {
-    margin-bottom: 28px;
-  }
-  .prox-grupo h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 17px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .prox-grupo h3 .n {
-    font-family: var(--font-body, inherit);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 1px 8px;
-    border-radius: 99px;
-    background: var(--surface-2);
-    color: var(--ink-2);
-  }
-  .prox-grupo.atrasados h3 {
-    color: var(--danger);
-  }
-  .prox-grupo.atrasados h3 .n {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-  .prox-grupo > .muted {
-    margin: 2px 0 10px;
-  }
-  .prox-lista {
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  .prox {
-    display: grid;
-    grid-template-columns: 92px minmax(0, 1fr) auto;
-    gap: 12px;
-    align-items: center;
-    padding: 11px 14px;
-    border-top: 1px solid var(--line-2, var(--line));
-    color: inherit;
-    text-decoration: none;
-  }
-  .prox:first-child {
-    border-top: 0;
-  }
-  .prox:hover {
-    background: var(--surface-2);
-  }
-  .prox-dia {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink-2);
-    font-variant-numeric: tabular-nums;
-  }
-  .atrasados .prox-dia {
-    color: var(--danger);
-  }
-  .prox-txt {
-    min-width: 0;
-  }
-  .prox-txt b {
-    display: block;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .prox-txt span {
-    display: block;
-    font-size: 13px;
-    color: var(--ink-3);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .prox-st {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 99px;
-    white-space: nowrap;
-    background-color: var(--surface-2);
-    color: var(--ink-2);
-  }
-  .prox-st.st-contenido {
-    background-color: var(--info-bg);
-    color: var(--info);
-  }
-  .prox-st.st-porproducir {
-    background-color: var(--warn-bg);
-    color: var(--warn);
-  }
-  .prox-st.st-produccion {
-    background-color: var(--accent-bg);
-    color: var(--accent);
-  }
-  .prox-st.st-listo {
-    background-color: var(--ok-bg);
-    color: var(--ok);
-  }
-  @media (max-width: 479px) {
-    .prox {
-      grid-template-columns: minmax(0, 1fr) auto;
-      row-gap: 2px;
-    }
-    .prox-dia {
-      grid-column: 1 / -1;
-    }
-  }
 
-  /* Agenda: todos los clientes */
+  /* Próximos y Agenda: todos los clientes, con las mismas tarjetas */
   .ag-bar {
     display: flex;
     flex-wrap: wrap;
@@ -329,6 +214,9 @@
   .ag-mes {
     margin-top: 22px;
   }
+  .ini-panel > .ag-mes:first-child {
+    margin-top: 0;
+  }
   .ag-mes h2 {
     font-family: var(--font-display);
     font-size: 20px;
@@ -373,6 +261,9 @@
     padding: 1px 8px;
     margin: 0 2px;
     vertical-align: 1px;
+  }
+  .ag-dia.ag-tarde {
+    color: var(--danger);
   }
   .ag-dia span {
     font-weight: 500;
@@ -607,10 +498,6 @@
       justify-self: start;
     }
   }
-  .prox-st.st-publicado {
-    background-color: var(--ink);
-    color: var(--bg);
-  }
   .ag-plegable {
     margin-top: 16px;
   }
@@ -635,9 +522,6 @@
   }
   .ag-tg[aria-expanded="true"]::before {
     transform: rotate(90deg);
-  }
-  .ag-plegable .prox-lista {
-    margin-top: 8px;
   }
   .ag-pop {
     position: fixed;
