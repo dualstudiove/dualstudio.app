@@ -309,9 +309,9 @@
     // o detallada (tabla, solo en computadora). Se recuerdan en el navegador.
     lgroup: pref("pc_lgroup", ["mes", "estado"]),
     lsort: pref("pc_lsort", ["fecha", "titulo", "formato", "redes", "estado"]),
-    // Flecha abajo («down») = el orden natural de la columna: fecha de la más reciente a la más antigua; título A-Z;
-    // formato y estado en su orden. Flecha arriba («up») lo invierte. Por defecto, fecha hacia arriba (cronológico).
-    ldir: pref("pc_ldir2", ["up", "down"]),
+    // Flecha abajo («down») = el orden natural de la columna: fecha de lo que se publica primero a lo último; título
+    // A-Z; formato y estado en su orden. Flecha arriba («up») lo invierte. Por defecto, fecha hacia abajo.
+    ldir: pref("pc_ldir3", ["down", "up"]),
     lview: pref("pc_lview", ["simple", "detalle"]),
     pubOpen: false,
     mdel: "",
@@ -1037,16 +1037,14 @@
     else if (k === "estado") d = STATUS_ORDER.indexOf(a.status || "idea") - STATUS_ORDER.indexOf(b.status || "idea");
     else if (k === "redes") d = platAbbr(a).localeCompare(platAbbr(b));
     if (!d) d = cmp(a, b);
-    var natural = k === "fecha" ? -d : d;
-    return S.ldir === "down" ? natural : -natural;
+    return S.ldir === "down" ? d : -d;
   }
   var LCOLS = [["fecha", "Fecha"], ["titulo", "Título"], ["formato", "Formato"], ["redes", "Redes"], ["", "Pauta"], ["", "Drive"], ["estado", "Estado"]];
   function lthead() {
     return "<thead><tr>" + LCOLS.map(function (c) {
       if (!c[0]) return '<th class="th-c">' + c[1] + "</th>";
       var on = S.lsort === c[0];
-      var asc = (S.ldir === "down") !== (c[0] === "fecha"); // en fecha, «abajo» es de la más reciente a la más antigua
-      return '<th aria-sort="' + (on ? (asc ? "ascending" : "descending") : "none") + '"><button type="button" class="th-s' + (on ? " on" : "") +
+      return '<th aria-sort="' + (on ? (S.ldir === "down" ? "ascending" : "descending") : "none") + '"><button type="button" class="th-s' + (on ? " on" : "") +
         '" data-act="lsortby" data-v="' + c[0] + '">' + c[1] + '<span class="th-ar" aria-hidden="true">' + (on ? (S.ldir === "down" ? "↓" : "↑") : "↕") +
         "</span></button></th>";
     }).join("") + "</tr></thead>";
@@ -5175,9 +5173,9 @@
         break;
       case "lsort":
         S.lsort = el.dataset.v === "formato" ? "formato" : "fecha";
-        S.ldir = S.lsort === "fecha" ? "up" : "down"; // fecha cronológica; formato en su orden
+        S.ldir = "down";
         setPref("pc_lsort", S.lsort);
-        setPref("pc_ldir2", S.ldir);
+        setPref("pc_ldir3", S.ldir);
         render();
         break;
       case "lsortby":
@@ -5188,7 +5186,7 @@
           S.ldir = "down";
         }
         setPref("pc_lsort", S.lsort);
-        setPref("pc_ldir2", S.ldir);
+        setPref("pc_ldir3", S.ldir);
         render();
         break;
       case "tedit":
