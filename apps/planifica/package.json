@@ -1,6 +1,6 @@
 {
   "name": "planifica",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Planifica: Parrilla de contenido para redes sociales: planificación, producción y objetivos por cliente.",
   "private": true,
   "type": "module",

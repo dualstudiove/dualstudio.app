@@ -1,5 +1,7 @@
 # Planifica
 
+
+Versión actual: **0.2.0 «Marcas»** · historial en [CHANGELOG.md](CHANGELOG.md) (cada día o sesión de trabajo es una versión).
 Parrilla de contenido para redes sociales: publicaciones de Instagram y TikTok (formato, fecha, estado, copy, tomas a grabar, referencias), calendario, objetivos del mes y del trimestre con métricas, y la pauta audiovisual en PDF. Es **multicliente** y siempre pide iniciar sesión.
 
 Nació como el artefacto «Parrilla de Contenido» de claude.ai (del que también salió el sistema de diseño de Dual Studio). Vive en **dualstudio.app/planifica** (Worker `planifica`).
