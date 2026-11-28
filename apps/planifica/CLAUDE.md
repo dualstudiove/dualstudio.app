@@ -11,6 +11,8 @@
 - **Al cerrar** (o cuando se pida subir a master):
   1. `version` de `package.json` = la versión de la sesión.
   2. La entrada del `CHANGELOG.md` con fecha y el rango de commits.
-  3. Tras subir a `master`, etiqueta en git `planifica-vX.Y.Z` sobre ese commit, y súbela (`git push origin <etiqueta>`).
+  3. En la entrada, el commit de `master` que es la versión. Si el entorno deja subir etiquetas, además
+     `git tag -a planifica-vX.Y.Z <commit>` y `git push origin planifica-vX.Y.Z` (en las sesiones en la nube de
+     Claude Code la subida de etiquetas da 403: basta con el CHANGELOG).
 - Si se pide el informe en PDF: portada con número y nombre, la lista Nuevo / Cambios / Eliminado / Arreglos, y
-  después las capturas de antes y después de cada cambio visible (la versión anterior es la etiqueta anterior).
+  después las capturas de antes y después de cada cambio visible (la versión anterior es el commit de la versión anterior en el CHANGELOG).

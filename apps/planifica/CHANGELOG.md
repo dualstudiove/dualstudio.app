@@ -1,8 +1,8 @@
 # Versiones de Planifica
 
 Cada día o sesión de trabajo es una versión. Cada una dice qué es **nuevo**, qué **cambió**, qué se **eliminó** y qué
-**arreglos** trae. La versión está en `package.json` y cada una se marca en git con la etiqueta `planifica-vX.Y.Z`
-sobre lo publicado en `master`. Reglas en [CLAUDE.md](CLAUDE.md).
+**arreglos** trae. La versión está en `package.json`; cada entrada dice qué commits de `master` la forman (y, donde se
+pueda subir, se marca con la etiqueta de git `planifica-vX.Y.Z`). Reglas en [CLAUDE.md](CLAUDE.md).
 
 ## 0.2.0 «Marcas» · 28 de noviembre de 2026
 
@@ -53,7 +53,7 @@ Rendimiento por periodo y Objetivos por mes o trimestre.
 - La página se movía de lado al cambiar de pestaña (aparecía la barra de scroll).
 - En el teléfono, el nombre largo de una marca se salía de la cabecera.
 
-Cambios publicados: `82f5c3e`…`e03dc8c`.
+Publicada en `master`: commits `82f5c3e`…`e03dc8c` (la versión es `e03dc8c`).
 
 ## 0.1.0 · antes del 28 de noviembre de 2026
 
