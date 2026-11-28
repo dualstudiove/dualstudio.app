@@ -133,7 +133,6 @@ function vistaClientes(s) {
     $("#tab-proximos").hidden = t !== "proximos";
     $("#tab-agenda").hidden = t !== "agenda";
     $("#tab-clientes").hidden = t !== "clientes";
-    if (t === "agenda") irAlMesActual();
   };
   window.onhashchange = mostrar;
   mostrar();
@@ -214,13 +213,6 @@ async function cargarDatos() {
     agenda.cargando = false;
   }
   pintar();
-  if (location.hash === "#agenda") irAlMesActual();
-}
-
-/** La Agenda se ubica en el mes actual al abrirla. */
-function irAlMesActual() {
-  const sec = agenda.datos && document.getElementById(`ag-${agenda.datos.hoy.slice(0, 7)}`);
-  if (sec) window.scrollTo(0, sec.getBoundingClientRect().top + window.scrollY - 12);
 }
 
 function pintar() {
