@@ -1,5 +1,6 @@
-/* ═══════════ Planifica: la parrilla de un cliente (capa app) ═══════════
-   Solo la carga parrilla.html, después de app.css.
+/* ═══════════ Planifica: componentes de la app (capa app) ═══════════
+   La cargan todas las páginas (inicio, configuración y la parrilla de una marca), después de app.css; encima va
+   componentes.css. Nació como la hoja de la parrilla: barra superior, pestañas, filtros, filas, calendario…
    Portados de la Parrilla de Contenido (el artefacto del que nació el sistema de diseño). Los tokens (colores,
    tipografía) vienen del padre y los colores de formato, de tema.css. Colores siempre con var(--…).
    Algunos nombres coinciden con componentes del padre con otro uso (.row, .chip, .empty, .tabs): al final se

@@ -45,9 +45,12 @@ export const { app, fetch, scheduled } = crearServidor({
   paginas(app, { asset, noEncontrada }) {
     app.get("/", (c) => asset(c, "/index.html"));
     // Configuración: Mi cuenta (todos), Personas y Marcas (administradores). /admin era la página anterior.
-    app.get("/configuracion", (c) => asset(c, "/admin.html"));
-    app.get("/admin", () =>
-      new Response(null, { status: 301, headers: { location: `${env.basePath}/configuracion#marcas` } }));
+    app.get("/configuracion", (c) => asset(c, "/config.html"));
+    app.get("/admin", (c) =>
+      new Response(null, {
+        status: 301,
+        headers: { location: `${env.basePath}/configuracion${new URL(c.req.url).search}#marcas` },
+      }));
     // Vuelta de «Conectar con Meta» (ver redes/meta.js). Esta dirección se registra en la configuración de Meta.
     app.get("/redes/meta/vuelta", (c) => vueltaMeta(c));
     // La parrilla de un cliente. Quién puede verla lo decide la API (sin sesión, la página lleva a iniciar sesión).

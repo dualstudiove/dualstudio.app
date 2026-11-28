@@ -123,7 +123,7 @@ export function registrarMeta(r) {
 export async function vueltaMeta(c) {
   const url = new URL(c.req.url);
   const ir = (q) =>
-    new Response(null, { status: 302, headers: { location: `${env.basePath}/admin?${new URLSearchParams(q)}#clientes` } });
+    new Response(null, { status: 302, headers: { location: `${env.basePath}/configuracion?${new URLSearchParams(q)}#marcas` } });
   const state = str(url.searchParams.get("state"), 64);
   const st = state ? await leerUnaVez(`meta_state|${state}`) : null;
   if (!st) return ir({ meta_error: "La conexión venció o no es válida. Vuelve a pulsar «Conectar con Meta»." });

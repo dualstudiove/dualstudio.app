@@ -169,6 +169,16 @@ export function registrarAdmin(r) {
       cambios.push("nombre = ?");
       valores.push(str(body.nombre, 80));
     }
+    if (body.email !== undefined && str(body.email, 160).toLowerCase() !== u.email) {
+      // Cambiar el correo (con el que entra): se cierran sus sesiones abiertas.
+      const email = str(body.email, 160).toLowerCase();
+      if (!esEmail(email)) throw new HttpError(400, "El correo no es válido.");
+      if (await db.get("SELECT 1 FROM usuarios WHERE email = ? AND id <> ?", [email, u.id])) {
+        throw new HttpError(409, "Ya hay una persona con ese correo.");
+      }
+      cambios.push("email = ?", "sesion_version = COALESCE(sesion_version, 0) + 1");
+      valores.push(email);
+    }
     if (body.activo !== undefined) {
       cambios.push("activo = ?");
       valores.push(body.activo ? 1 : 0);

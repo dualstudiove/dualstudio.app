@@ -874,12 +874,12 @@
             '" data-act="colabpick" data-v="' + esc(o.slug) + '">' + CHECK_SVG + "<span>" + esc(o.nombre) +
             (o.slug === window.PLANIFICA.cliente ? " (esta cuenta)" : "") + "</span></button>";
         }).join("")
-        : '<p class="mi-h">No tienes otros clientes para compartir.</p>') +
+        : '<p class="mi-h">No tienes otras marcas para compartir.</p>') +
         '<p class="mi-n">Es un solo post: se ve y se edita igual desde cada cuenta. Se publica desde ' +
         esc(p.colab ? p.colab.cuentas[0].nombre : "esta cuenta") + ".</p>";
       openMenu(btn, html, "acts-menu colab-menu");
     }, function () {
-      toast("No se pudo cargar la lista de clientes.");
+      toast("No se pudo cargar la lista de marcas.");
     });
   }
   function toggleColab(slug) {
@@ -2840,7 +2840,7 @@
   }
   /** Aviso cuando Instagram no está conectado (o falló): qué se gana y cómo conectarlo. */
   function igConnectUrl() {
-    return window.PLANIFICA.base + "/admin?instagram=" + encodeURIComponent(window.PLANIFICA.cliente);
+    return window.PLANIFICA.base + "/configuracion?instagram=" + encodeURIComponent(window.PLANIFICA.cliente);
   }
   function igConnectNotice(texto, compacto) {
     if (!S.canWrite) return ""; // aviso interno: ni el cliente ni la vista del cliente lo ven

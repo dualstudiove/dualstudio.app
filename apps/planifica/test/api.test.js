@@ -502,3 +502,12 @@ test("/admin lleva a la configuración", async () => {
   assert.equal(r.status, 301);
   assert.equal(r.res.headers.get("location"), "/planifica/configuracion#marcas");
 });
+
+test("un administrador cambia el correo de alguien (entra con el nuevo)", async () => {
+  assert.equal((await admin(`/api/admin/usuarios/${ids.otra}`, { method: "PUT", body: { email: "ana@x.co" } })).status, 409);
+  assert.equal((await admin(`/api/admin/usuarios/${ids.otra}`, { method: "PUT", body: { email: "no-es-correo" } })).status, 400);
+  assert.equal((await admin(`/api/admin/usuarios/${ids.otra}`, { method: "PUT", body: { email: "Otra2@X.co" } })).status, 200);
+  assert.equal((await ajena("/api/agenda")).status, 401, "se cierran sus sesiones");
+  const n = navegador();
+  assert.equal((await n("/api/login", { method: "POST", body: { email: "otra2@x.co", password: "Clave12345" } })).status, 200);
+});

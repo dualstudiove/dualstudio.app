@@ -1,12 +1,15 @@
-// Inicio de Planifica: iniciar sesión, elegir cliente y «Tu cuenta».
+// Inicio de Planifica: iniciar sesión y, con sesión, «Todos»: Próximos y Calendario de todas tus marcas.
+// Usa los componentes de la parrilla (parrilla.css): barra superior, pestañas, filtros, filas, calendario y menú
+// de estados. La cabecera (selector de marca y foto) es cabecera.js.
 import { basePath, crearApi } from "../_ds/comun/web/api.js";
 import { $, esc } from "../_ds/comun/web/dom.js";
 import { icon } from "../_ds/diseno/js/iconos.js";
-import { conBoton, toast } from "../_ds/diseno/js/componentes.js";
+import { toast } from "../_ds/diseno/js/componentes.js";
+import { barraHtml, marcasConColor, montarCabecera } from "./cabecera.js";
 
 const BASE = basePath(import.meta.url, 1);
 const api = crearApi((ruta) => BASE + ruta);
-const apiCliente = (slug, ruta, opciones) => crearApi((r) => `${BASE}/${encodeURIComponent(slug)}${r}`)(ruta, opciones);
+const apiMarca = (slug, ruta, opciones) => crearApi((r) => `${BASE}/${encodeURIComponent(slug)}${r}`)(ruta, opciones);
 const root = $("#root");
 
 /** ?volver=<ruta>: solo rutas dentro de la app (nunca otro sitio). */
@@ -15,13 +18,13 @@ function volver() {
   return v.startsWith(`${BASE}/`) && !v.startsWith("//") && !/[\\]/.test(v) ? v : null;
 }
 
-const marca =
+const marcaPlanifica =
   '<span class="marca" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i class="on"></i></span>';
 
 function vistaLogin() {
   document.title = "Iniciar sesión · Planifica";
   root.innerHTML = `<div class="login"><div class="card">
-    ${marca}
+    ${marcaPlanifica}
     <h1>Planifica</h1><p class="muted">Parrilla de contenido de Dual Studio. Entra con tu correo y tu contraseña.</p>
     <form id="f" novalidate>
       <div class="field"><label for="e">Correo</label><input id="e" type="email" autocomplete="username" required></div>
@@ -55,119 +58,7 @@ function vistaLogin() {
   });
 }
 
-function vistaClientes(s) {
-  const u = s.usuario;
-  document.title = "Tus clientes · Planifica";
-  const clientes = s.clientes;
-  const tarjetas = clientes.map((c) =>
-    `<a class="cliente ${c.activo ? "" : "off"}" href="${esc(`${BASE}/${c.slug}`)}">
-      <span class="ini" aria-hidden="true">${
-      esc((c.nombre || "?").trim().charAt(0).toUpperCase())
-    }</span>
-      <span class="txt"><b>${esc(c.nombre)}</b><span>${
-      esc(c.handle || "Sin cuenta de Instagram")
-    }</span></span>
-      ${
-      c.activo
-        ? (c.rol === "lector" ? '<span class="badge off">Solo lectura</span>' : "")
-        : '<span class="badge off">Archivado</span>'
-    }
-      <span class="go" aria-hidden="true">→</span></a>`
-  ).join("");
-  root.innerHTML = `<div class="pag">
-    <header class="cab">${marca}<div class="grow"><h1>Hola${
-    u.nombre ? `, ${esc(u.nombre)}` : ""
-  }</h1><p class="muted">${esc(u.email)}${u.es_admin ? " · Administrador" : ""}</p></div>
-      ${
-    u.es_admin
-      ? `<a class="btn" href="${esc(BASE)}/admin">${icon("edit")} Clientes y equipo</a>`
-      : ""
-  }
-      <button class="btn btn-ghost" id="salir" type="button">${icon("out")} Salir</button></header>
-    ${
-    s.secretos_recuperacion
-      ? `<div class="notice warn">${
-        icon("warn")
-      }<div>Los secretos <b>SUPER_EMAIL</b> y <b>SUPER_PASSWORD</b> siguen guardados en Cloudflare. Ya se usaron y no volverán a cambiar ninguna contraseña, pero conviene borrarlos: Workers y Pages → planifica → Configuración → Variables y secretos.</div></div>`
-      : ""
-  }
-    <nav class="tabs ini-tabs" aria-label="Inicio">
-      <a href="#proximos" data-tab="proximos">Próximos <span class="n" id="n-prox"></span></a>
-      <a href="#agenda" data-tab="agenda">Agenda</a>
-      <a href="#clientes" data-tab="clientes">Clientes <span class="n">${clientes.filter((c) => c.activo).length}</span></a>
-    </nav>
-    <section id="tab-proximos" class="ini-panel"><p class="muted">Cargando…</p></section>
-    <section id="tab-agenda" class="ini-panel" hidden><p class="muted">Cargando…</p></section>
-    <section id="tab-clientes" class="ini-panel">
-    ${
-    clientes.length
-      ? `<div class="clientes">${tarjetas}</div>`
-      : `<div class="empty">${icon("empty")}<p>Aún no tienes clientes asignados</p><span>${
-        u.es_admin
-          ? "Crea el primero en «Clientes y equipo»."
-          : "Pídele a un administrador que te dé acceso."
-      }</span></div>`
-  }
-    <div class="card cuenta"><h3>Tu cuenta</h3>
-      <form id="fn" class="fila" novalidate><div class="field"><label for="nn">Tu nombre</label><input id="nn" type="text" value="${
-    esc(u.nombre || "")
-  }" autocomplete="name"></div><button class="btn" type="submit">Guardar</button></form>
-      <form id="fpw" novalidate><div class="row"><div class="field"><label for="pa">Contraseña actual</label><input id="pa" type="password" autocomplete="current-password"></div>
-        <div class="field"><label for="pn">Contraseña nueva</label><input id="pn" type="password" autocomplete="new-password" minlength="8"><span class="hint">Mínimo 8 caracteres.</span></div></div>
-        <button class="btn" type="submit">Cambiar contraseña</button></form>
-      <p class="muted small" style="margin:16px 0 8px">¿Entraste desde un equipo ajeno o crees que alguien más tiene tu sesión? Ciérrala en todos los demás navegadores; aquí sigues dentro.</p>
-      <button class="btn" type="button" id="cerrar-otras">${
-    icon("out")
-  } Cerrar sesión en los demás dispositivos</button>
-    </div></section></div>`;
-
-  const pestana = () =>
-    location.hash === "#clientes" ? "clientes" : location.hash === "#agenda" ? "agenda" : "proximos";
-  const mostrar = () => {
-    const t = pestana();
-    for (const a of root.querySelectorAll(".ini-tabs a")) {
-      a.classList.toggle("on", a.dataset.tab === t);
-      if (a.dataset.tab === t) a.setAttribute("aria-current", "page");
-      else a.removeAttribute("aria-current");
-    }
-    $("#tab-proximos").hidden = t !== "proximos";
-    $("#tab-agenda").hidden = t !== "agenda";
-    $("#tab-clientes").hidden = t !== "clientes";
-  };
-  window.onhashchange = mostrar;
-  mostrar();
-  cargarDatos();
-
-  $("#salir").addEventListener("click", async () => {
-    await api("/api/logout", { method: "POST" }).catch(() => {});
-    boot();
-  });
-  $("#fn").addEventListener("submit", (ev) => {
-    ev.preventDefault();
-    conBoton($("button", ev.target), async () => {
-      await api("/api/cuenta", { method: "PUT", body: { nombre: $("#nn").value } });
-      toast("Nombre guardado", "ok");
-    });
-  });
-  $("#fpw").addEventListener("submit", (ev) => {
-    ev.preventDefault();
-    conBoton($("button", ev.target), async () => {
-      await api("/api/cuenta/password", {
-        method: "POST",
-        body: { actual: $("#pa").value, nueva: $("#pn").value },
-      });
-      ev.target.reset();
-      toast("Contraseña actualizada", "ok");
-    });
-  });
-  $("#cerrar-otras").addEventListener("click", (ev) =>
-    conBoton(ev.currentTarget, async () => {
-      await api("/api/cuenta/sesiones/cerrar", { method: "POST" });
-      toast("Listo: las demás sesiones quedaron cerradas", "ok");
-    }));
-}
-
-// ── Próximos y Agenda: los posts de todos tus clientes (una sola consulta, las mismas tarjetas) ──
+// ── Textos e iconos (los mismos de la parrilla) ──
 const ESTADOS = {
   idea: "Idea",
   contenido: "Contenido",
@@ -175,89 +66,14 @@ const ESTADOS = {
   produccion: "En producción",
   terminado: "Listo",
   listo: "Por publicar",
+  publicado: "Publicado",
 };
 const FORMATOS = { reel: "Reel", carrusel: "Carrusel", foto: "Foto", historia: "Historia", diseno: "Diseño" };
 const REDES = { ig: "IG", tt: "TT" };
-
-// ── Agenda: los posts de todos tus clientes, en una sola lista por meses ──
-// Cada post lleva el color de su cliente; arriba, chips para mostrar u ocultar clientes. Lo publicado va recogido
-// arriba y las ideas sin fecha al final. Desde aquí se cambia el estado y se crean posts (se abre la parrilla del
-// cliente elegido con la ventana de «Nuevo post»).
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre",
   "Noviembre", "Diciembre"];
-const ESTADOS_TODOS = { ...ESTADOS, publicado: "Publicado" };
-const COLORES = ["var(--cat-1)", "var(--cat-2)", "var(--cat-3)", "var(--cat-4)", "var(--cat-5)", "var(--info)",
-  "var(--warn)", "var(--danger)"];
-const agenda = { datos: null, cargando: false, pubAbierto: false, ideasAbiertas: false, ocultos: new Set() };
-try {
-  for (const s of JSON.parse(localStorage.getItem("pl_agenda_ocultos") || "[]")) agenda.ocultos.add(s);
-} catch {}
-
-function guardarOcultos() {
-  try {
-    localStorage.setItem("pl_agenda_ocultos", JSON.stringify([...agenda.ocultos]));
-  } catch {}
-}
-
-async function cargarDatos() {
-  agenda.cargando = true;
-  try {
-    agenda.datos = await api("/api/agenda");
-  } catch (e) {
-    for (const id of ["#tab-proximos", "#tab-agenda"]) {
-      const caja = $(id);
-      if (caja) caja.innerHTML = `<div class="notice bad">${icon("warn")}<div>${esc(e.message)}</div></div>`;
-    }
-    return;
-  } finally {
-    agenda.cargando = false;
-  }
-  pintar();
-}
-
-function pintar() {
-  pintarProximos();
-  pintarAgenda();
-}
-
-/** Cada cliente con su color (el mismo en Próximos y en la Agenda). */
-function clientesConColor(a) {
-  return new Map(a.clientes.map((c, i) => [c.slug, { ...c, color: COLORES[i % COLORES.length] }]));
-}
-
-/**
- * Próximos: lo que viene pronto, con las tarjetas de la Agenda. Atrasados (fecha de hasta 30 días atrás y sin
- * publicar), Por publicar (listos, de hoy a 7 días) y Aún no listos (con fecha de hoy a 7 días).
- */
-function pintarProximos() {
-  const caja = $("#tab-proximos"), a = agenda.datos;
-  if (!caja || !a) return;
-  const clientes = clientesConColor(a);
-  const suma = (dia, n) => {
-    const d = new Date(`${dia}T12:00:00`);
-    d.setDate(d.getDate() + n);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  const desde = suma(a.hoy, -30), hasta = suma(a.hoy, 7);
-  const posts = a.posts.filter((p) => p.status !== "publicado" && p.date && p.date >= desde && p.date <= hasta && clientes.has(p.cliente))
-    .sort((x, y) => x.date.localeCompare(y.date) || (x.time || "").localeCompare(y.time || ""));
-  const fila = (p) => filaAgenda(p, a, clientes.get(p.cliente));
-  const grupo = (clase, titulo, ayuda, lista) =>
-    lista.length
-      ? `<section class="ag-mes"><h3 class="ag-dia${clase}">${titulo} <span>· ${plural(lista.length, "post", "posts")} · ${ayuda}</span></h3>` +
-        `<div class="ag-rows">${lista.map(fila).join("")}</div></section>`
-      : "";
-  const n = $("#n-prox");
-  if (n) n.textContent = posts.length ? String(posts.length) : "";
-  caja.innerHTML = posts.length
-    ? grupo(" ag-tarde", "Atrasados", "ya pasó su fecha y aún no se publican", posts.filter((p) => p.date < a.hoy)) +
-      grupo("", "Por publicar", "listos para hoy y los próximos 7 días", posts.filter((p) => p.date >= a.hoy && p.status === "listo")) +
-      grupo("", "Aún no listos", "con fecha en los próximos 7 días", posts.filter((p) => p.date >= a.hoy && p.status !== "listo"))
-    : `<div class="empty">${icon("empty")}<p>Nada pendiente</p><span>No hay posts sin publicar con fecha en los próximos 7 días.</span></div>`;
-}
-
-// Tarjetas como las de la Lista de la parrilla: fecha a la izquierda, título, etiquetas y estado (con su menú).
-const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const DOW_LARGO = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 const ST_ICON = {
   idea: '<circle cx="8" cy="8" r="6.25" stroke-dasharray="2.4 2.5"/>',
   contenido: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 11.005 4.995z"/>',
@@ -267,165 +83,343 @@ const ST_ICON = {
   listo: '<circle cx="8" cy="8" r="6.25"/><circle class="fl" cx="8" cy="8" r="4.25"/>',
   publicado: '<circle class="fl" cx="8" cy="8" r="7"/><path class="ck" d="M5.2 8.2l1.9 1.9 3.7-4"/>',
 };
+const SVG = (d, w = 1.5) =>
+  `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const stIcono = (k) => SVG(ST_ICON[k] || ST_ICON.idea).replace("<svg ", '<svg class="sti" ');
 const CHEV =
   '<svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg>';
-const stIcono = (k) =>
-  `<svg class="sti" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${
-    ST_ICON[k] || ST_ICON.idea
-  }</svg>`;
-const fmtIcono = (k) =>
-  FORMATOS[k] ? `<img class="ag-fi" src="${esc(`${BASE}/img/formatos/${k}.png`)}" alt="" aria-hidden="true">` : "";
+const FILTRO_SVG = SVG('<path d="M2 3.5h12l-4.6 5.4v3.6L6.6 14V8.9z"/>', 1.6);
+const OJO_SVG = SVG('<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>');
+const OJO_NO_SVG = SVG(
+  '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/>',
+);
+const TAB_PROX = SVG('<circle cx="8" cy="8" r="6"/><path d="M8 4.75V8l2.25 1.5"/>');
+const TAB_CAL = SVG('<rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.75v2.5M10.5 1.75v2.5"/>');
+const fmtIcono = (k) => `<img class="fi" src="${esc(`${BASE}/img/formatos/${k}.png`)}" alt="" aria-hidden="true">`;
 const horaCorta = (t) => {
   const m = /^(\d{1,2}):(\d{2})/.exec(t || "");
   if (!m) return "";
   const h = +m[1];
   return `${h % 12 || 12}${m[2] === "00" ? "" : `:${m[2]}`}${h < 12 ? "am" : "pm"}`;
 };
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+const dosD = (n) => String(n).padStart(2, "0");
+const ymd = (y, m, d) => `${y}-${dosD(m + 1)}-${dosD(d)}`;
+const fecha = (s) => new Date(`${s}T12:00:00`);
+const dowLun = (d) => (d.getDay() + 6) % 7;
+const sumarDias = (dia, n) => {
+  const d = fecha(dia);
+  d.setDate(d.getDate() + n);
+  return ymd(d.getFullYear(), d.getMonth(), d.getDate());
+};
+const fechaLarga = (s) => {
+  const d = fecha(s);
+  const t = `${DOW_LARGO[dowLun(d)]} ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()}`;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+const orden = (x, y) =>
+  (x.date || "9999").localeCompare(y.date || "9999") || (x.time || "99:99").localeCompare(y.time || "99:99");
 
-function filaAgenda(p, a, cli) {
-  const d = p.date ? new Date(`${p.date}T12:00:00`) : null;
-  const f = FORMATOS[p.format] ? p.format : "reel";
-  const redes = p.platforms.map((r) => REDES[r]).filter(Boolean).join(", ");
-  const st = ESTADOS_TODOS[p.status] ? p.status : "idea";
-  const estado = cli.rol === "editor"
-    ? `<button type="button" class="ag-st st-${st}" data-ag="stmenu" data-id="${esc(p.id)}" data-cli="${esc(p.cliente)}" aria-haspopup="menu" aria-expanded="false" aria-label="Estado: ${
-      esc(ESTADOS_TODOS[st])
-    }">${stIcono(st)}<span>${esc(ESTADOS_TODOS[st])}</span>${CHEV}</button>`
-    : `<span class="ag-st st-${st}">${stIcono(st)}<span>${esc(ESTADOS_TODOS[st])}</span></span>`;
-  return `<div class="ag-card${st === "publicado" ? " pub" : ""}" style="--cc:${cli.color}">
-    <div class="ag-rd">${
-    d
-      ? `<b>${d.getDate()}</b><span>${DIAS_CORTOS[d.getDay()]}</span>${p.time ? `<span class="ag-rt">${esc(horaCorta(p.time))}</span>` : ""}`
-      : "<b>–</b><span>idea</span>"
-  }</div>
-    <div class="ag-main"><a class="ag-t" href="${esc(`${BASE}/${p.cliente}#post-${p.id}`)}">${
-    p.title ? esc(p.title) : "<em>Sin título</em>"
-  }</a>
-      <div class="ag-meta"><span class="ag-cli"><i aria-hidden="true"></i>${esc(cli.nombre)}</span><span class="ag-tag f-${f}">${fmtIcono(f)}${
-    esc(FORMATOS[f])
-  }</span>${redes ? `<span class="ag-pl">${esc(redes)}</span>` : ""}${
-    p.colab ? `<span class="ag-tag ag-colab" title="${esc(p.colab.join(", "))}">🤝 ${p.colab.length} cuentas</span>` : ""
-  }</div></div>
-    ${estado}</div>`;
-}
-
-function pintarAgenda() {
-  const caja = $("#tab-agenda"), a = agenda.datos;
-  if (!caja || !a) return;
-  const clientes = clientesConColor(a);
-  const editables = a.clientes.filter((c) => c.rol === "editor");
-  const posts = a.posts.filter((p) => clientes.has(p.cliente) && !agenda.ocultos.has(p.cliente))
-    .sort((x, y) => (x.date || "9999").localeCompare(y.date || "9999") || (x.time || "").localeCompare(y.time || ""));
-  const fila = (p) => filaAgenda(p, a, clientes.get(p.cliente));
-  const pub = posts.filter((p) => p.status === "publicado");
-  const abiertos = posts.filter((p) => p.status !== "publicado");
-  const sinFecha = abiertos.filter((p) => !p.date);
-  const meses = {};
-  const mesHoy = a.hoy.slice(0, 7);
-  meses[mesHoy] = [];
-  for (const p of abiertos) if (p.date) (meses[p.date.slice(0, 7)] ||= []).push(p);
-  let h = `<div class="ag-bar"><div class="ag-chips" role="group" aria-label="Clientes">${
-    a.clientes.map((c) => {
-      const on = !agenda.ocultos.has(c.slug);
-      return `<button type="button" class="ag-chip" data-ag="cli" data-v="${esc(c.slug)}" aria-pressed="${on}" style="--cc:${
-        clientes.get(c.slug).color
-      }"><i aria-hidden="true"></i>${esc(c.nombre)}</button>`;
-    }).join("")
-  }</div>${
-    editables.length ? `<button type="button" class="btn btn-primary" data-ag="nuevo">${icon("plus")} Nuevo post</button>` : ""
-  }</div>`;
-  if (pub.length) {
-    h += `<div class="ag-plegable"><button type="button" class="ag-tg" data-ag="pub" aria-expanded="${agenda.pubAbierto}">${
-      plural(pub.length, "publicado", "publicados")
-    } <span class="muted">· últimos 3 meses</span></button>${
-      agenda.pubAbierto ? `<div class="ag-rows">${pub.slice().reverse().map(fila).join("")}</div>` : ""
-    }</div>`;
+// ── Estado ──
+// El filtro de marca es el mismo en Próximos y en el Calendario (y se recuerda en este navegador).
+const leer = (k, def) => {
+  try {
+    return localStorage.getItem(k) ?? def;
+  } catch {
+    return def;
   }
-  for (const ym of Object.keys(meses).sort()) {
-    const lista = meses[ym];
-    const [y, m] = ym.split("-").map(Number);
-    h += `<section class="ag-mes" id="ag-${ym}"><h3 class="ag-dia">${MESES[m - 1]} ${y}${
-      ym === mesHoy ? ' <em class="ag-now">este mes</em>' : ""
-    } <span>· ${plural(lista.length, "post pendiente", "posts pendientes")}</span></h3>${lista.length ? `<div class="ag-rows">${lista.map(fila).join("")}</div>` : '<p class="muted">Nada pendiente.</p>'}</section>`;
-  }
-  if (sinFecha.length) {
-    h += `<div class="ag-plegable"><button type="button" class="ag-tg" data-ag="ideas" aria-expanded="${agenda.ideasAbiertas}">${
-      plural(sinFecha.length, "idea sin fecha", "ideas sin fecha")
-    }</button>${agenda.ideasAbiertas ? `<div class="ag-rows">${sinFecha.map(fila).join("")}</div>` : ""}</div>`;
-  }
-  caja.innerHTML = h;
-}
+};
+const guardar = (k, v) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {}
+};
+const E = {
+  sesion: null,
+  datos: null, // /api/agenda
+  marcas: new Map(), // slug → marca con su color (de la lista de la sesión: el mismo color en todas partes)
+  marca: leer("pl_ini_marca", "all"),
+  filtrosAbiertos: false,
+  verPublicados: leer("pl_ini_pub", "1") === "1",
+  y: 0,
+  m: 0,
+  sel: null,
+};
 
-function plural(n, uno, varios) {
-  return `${n} ${n === 1 ? uno : varios}`;
-}
+const pestana = () => (location.hash === "#calendario" || location.hash === "#agenda" ? "calendario" : "proximos");
 
-function menuNuevoPost(boton) {
-  const editables = agenda.datos.clientes.filter((c) => c.rol === "editor");
-  if (editables.length === 1) {
-    location.href = `${BASE}/${editables[0].slug}#nuevo`;
+function vistaInicio(s) {
+  E.sesion = s;
+  E.marcas = marcasConColor(s.clientes);
+  if (E.marca !== "all" && !E.marcas.has(E.marca)) E.marca = "all";
+  document.title = "Planifica";
+  root.className = "";
+  const activas = s.clientes.filter((c) => c.activo).length;
+  root.innerHTML = `<div class="wrap" id="app"><header class="top">${
+    barraHtml({ nombre: "Todos", sub: plural(activas, "marca", "marcas") })
+  }<nav class="tabs" aria-label="Vistas">
+      <a href="#proximos" data-nav="proximos">${TAB_PROX}<span>Próximos<i class="n" id="n-prox"></i></span></a>
+      <a href="#calendario" data-nav="calendario">${TAB_CAL}<span>Calendario</span></a>
+    </nav></header>${
+    s.secretos_recuperacion
+      ? `<div class="notice warn">${
+        icon("warn")
+      }<div>Los secretos <b>SUPER_EMAIL</b> y <b>SUPER_PASSWORD</b> siguen guardados en Cloudflare. Ya se usaron y no volverán a cambiar ninguna contraseña, pero conviene borrarlos: Workers y Pages → planifica → Configuración → Variables y secretos.</div></div>`
+      : ""
+  }<main id="main"><p class="cargando">Cargando…</p></main></div>`;
+  montarCabecera({ sesion: s, actual: null });
+  window.onhashchange = pintar;
+  if (!s.clientes.length) {
+    $("#main").innerHTML = `<div class="empty"><h3>Aún no tienes marcas</h3><p>${
+      s.usuario.es_admin
+        ? `Crea la primera en <a href="${esc(BASE)}/configuracion#marcas">Configuración → Marcas</a>.`
+        : "Pídele a un administrador que te dé acceso."
+    }</p></div>`;
+    marcarPestana();
     return;
   }
-  let pop = document.getElementById("agNuevo");
-  if (pop) return pop.remove();
-  pop = document.createElement("div");
-  pop.id = "agNuevo";
-  pop.className = "ag-pop";
-  pop.innerHTML = `<p class="muted small">¿Para qué cliente?</p>${
-    editables.map((c) => `<a href="${esc(`${BASE}/${c.slug}#nuevo`)}">${esc(c.nombre)}</a>`).join("")
-  }`;
-  const r = boton.getBoundingClientRect();
-  pop.style.top = `${Math.round(r.bottom + 6)}px`;
-  pop.style.left = `${Math.max(8, Math.round(Math.min(r.right - 240, window.innerWidth - 248)))}px`;
-  document.body.appendChild(pop);
-  const fuera = (e) => {
-    if (!pop.contains(e.target) && !boton.contains(e.target)) {
-      pop.remove();
-      document.removeEventListener("mousedown", fuera, true);
-    }
-  };
-  document.addEventListener("mousedown", fuera, true);
+  cargarDatos();
 }
 
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-ag]");
-  if (!b || !agenda.datos) return;
-  const t = b.dataset.ag;
-  if (t === "cli") {
-    if (agenda.ocultos.has(b.dataset.v)) agenda.ocultos.delete(b.dataset.v);
-    else agenda.ocultos.add(b.dataset.v);
-    guardarOcultos();
-    pintar();
-  } else if (t === "pub") {
-    agenda.pubAbierto = !agenda.pubAbierto;
-    pintar();
-  } else if (t === "ideas") {
-    agenda.ideasAbiertas = !agenda.ideasAbiertas;
-    pintar();
-  } else if (t === "nuevo") menuNuevoPost(b);
-  else if (t === "stmenu") {
-    if (b.getAttribute("aria-expanded") === "true") cerrarMenuEstado();
-    else abrirMenuEstado(b);
-  } else if (t === "stpick") {
-    cerrarMenuEstado();
-    cambiarEstado(b.dataset.id, b.dataset.cli, b.dataset.v);
+function marcarPestana() {
+  const t = pestana();
+  for (const a of root.querySelectorAll("[data-nav]")) {
+    if (a.dataset.nav === t) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
   }
+}
+
+async function cargarDatos() {
+  try {
+    E.datos = await api("/api/agenda");
+  } catch (e) {
+    const main = $("#main");
+    if (main && !E.datos) main.innerHTML = `<div class="notice bad">${icon("warn")}<div>${esc(e.message)}</div></div>`;
+    return;
+  }
+  if (!E.y) {
+    const h = fecha(E.datos.hoy);
+    E.y = h.getFullYear();
+    E.m = h.getMonth();
+  }
+  pintar();
+}
+// Al volver a la pestaña del navegador, datos frescos (otro pudo mover posts).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && E.datos && !DR) cargarDatos();
 });
 
-// Estado: la píldora abre un menú con todos los estados (como en la parrilla)
+const marcaDe = (p) => E.marcas.get(p.cliente) || { nombre: p.cliente, color: "azul", rol: "lector" };
+const rolDe = (slug) => (E.datos.clientes.find((c) => c.slug === slug) || {}).rol;
+const editables = () => E.datos.clientes.filter((c) => c.rol === "editor" && (E.marca === "all" || c.slug === E.marca));
+const visibles = () => E.datos.posts.filter((p) => E.marca === "all" || p.cliente === E.marca);
+
+let pendientePintar = false;
+function pintar() {
+  if (DR) {
+    pendientePintar = true; // no se repinta a mitad de un arrastre
+    return;
+  }
+  marcarPestana();
+  const main = $("#main");
+  if (!main || !E.datos) return;
+  const n = $("#n-prox");
+  if (n) n.textContent = String(proximos().length || "");
+  main.innerHTML = pestana() === "calendario" ? vistaCalendario() : vistaProximos();
+}
+
+// ── Filtros (el componente de la parrilla, con un solo filtro: Marca) ──
+function barraFiltros(calendario) {
+  const n = E.marca === "all" ? 0 : 1;
+  let h = `<div class="toolbar"><button class="btn filter-btn" type="button" data-ag="filtros" aria-expanded="${E.filtrosAbiertos}" aria-controls="fpanel">${FILTRO_SVG}<span>Filtros</span>${
+    n ? '<span class="badge" aria-label="1 filtro activo">1</span>' : ""
+  }</button>${n ? '<button class="btn ghost sm" type="button" data-ag="limpiar">Limpiar</button>' : ""}`;
+  if (calendario) {
+    h += `<button class="tog eye" type="button" data-ag="publicados" aria-pressed="${E.verPublicados}" title="Mostrar u ocultar los posts publicados">${
+      E.verPublicados ? OJO_SVG : OJO_NO_SVG
+    }<span>Publicados</span></button>`;
+    const lista = [...E.marcas.values()].filter((c) => (E.marca === "all" ? c.activo : c.slug === E.marca));
+    h += `<div class="legend" aria-label="Marcas">${
+      lista.map((c) => `<span class="mtag m-${c.color}"><i class="mdot"></i>${esc(c.nombre)}</span>`).join("")
+    }</div>`;
+  }
+  h += "</div>";
+  if (E.filtrosAbiertos) {
+    h += `<div class="fpanel" id="fpanel"><div class="fld"><label for="fq-marca">Marca</label><select id="fq-marca" class="in" data-agf="marca"><option value="all">Todas</option>${
+      E.datos.clientes.map((c) =>
+        `<option value="${esc(c.slug)}"${E.marca === c.slug ? " selected" : ""}>${esc(c.nombre)}</option>`
+      ).join("")
+    }</select></div></div>`;
+  }
+  return h;
+}
+
+// ── Fila (la tarjeta de la Lista de la parrilla, con la marca) ──
+function fila(p, arrastrable) {
+  const d = p.date ? fecha(p.date) : null;
+  const f = FORMATOS[p.format] ? p.format : "reel";
+  const st = ESTADOS[p.status] ? p.status : "idea";
+  const m = marcaDe(p);
+  const redes = (p.platforms || []).map((r) => REDES[r]).filter(Boolean).join(", ");
+  const estado = rolDe(p.cliente) === "editor"
+    ? `<button class="st stsel st-${st}" type="button" data-ag="stmenu" data-id="${esc(p.id)}" data-cli="${
+      esc(p.cliente)
+    }" aria-haspopup="menu" aria-expanded="false" aria-label="Estado: ${esc(ESTADOS[st])}. Cambiar estado de ${
+      esc(p.title || "Sin título")
+    }">${stIcono(st)}<span>${esc(ESTADOS[st])}</span>${CHEV}</button>`
+    : `<span class="st st-${st}">${stIcono(st)}${esc(ESTADOS[st])}</span>`;
+  return `<div class="row f-${f}${st === "publicado" ? " pub" : ""}"${
+    arrastrable && rolDe(p.cliente) === "editor" ? ` data-drag="${esc(`${p.cliente}|${p.id}`)}"` : ""
+  }><div class="rd">${
+    d
+      ? `<b>${d.getDate()}</b><span>${DOW[dowLun(d)]}</span>${p.time ? `<span class="rt">${esc(horaCorta(p.time))}</span>` : ""}`
+      : "<b>–</b><span>idea</span>"
+  }</div><div><div class="t"><a class="rlink" href="${esc(`${BASE}/${p.cliente}#post-${p.id}`)}" draggable="false">${
+    p.title ? esc(p.title) : "<em>Sin título</em>"
+  }</a></div><div class="meta"><span class="mlabel m-${m.color}"><i class="mdot"></i>${esc(m.nombre)}</span><span class="tag">${
+    fmtIcono(f)
+  }${FORMATOS[f]}</span>${redes ? `<span class="pl">${esc(redes)}</span>` : ""}${
+    p.colab ? `<span class="tag colab" title="${esc(p.colab.join(", "))}">🤝 ${plural(p.colab.length, "cuenta", "cuentas")}</span>` : ""
+  }</div></div>${estado}</div>`;
+}
+
+// ── Próximos: atrasados (hasta 30 días), por publicar y aún no listos (de hoy a 7 días) ──
+function proximos() {
+  const a = E.datos, desde = sumarDias(a.hoy, -30), hasta = sumarDias(a.hoy, 7);
+  return visibles().filter((p) => p.status !== "publicado" && p.date && p.date >= desde && p.date <= hasta)
+    .sort(orden);
+}
+function vistaProximos() {
+  const a = E.datos, posts = proximos();
+  const grupo = (clase, titulo, ayuda, lista) =>
+    lista.length
+      ? `<section class="prox-g"><h3 class="day-h${clase}">${titulo} <span>· ${plural(lista.length, "post", "posts")} · ${ayuda}</span></h3>` +
+        `<div class="rows">${lista.map((p) => fila(p)).join("")}</div></section>`
+      : "";
+  return barraFiltros(false) + (posts.length
+    ? grupo(" tarde", "Atrasados", "ya pasó su fecha y aún no se publican", posts.filter((p) => p.date < a.hoy)) +
+      grupo("", "Por publicar", "listos para hoy y los próximos 7 días", posts.filter((p) => p.date >= a.hoy && p.status === "listo")) +
+      grupo("", "Aún no listos", "con fecha en los próximos 7 días", posts.filter((p) => p.date >= a.hoy && p.status !== "listo"))
+    : `<div class="empty"><h3>Nada pendiente</h3><p>No hay posts sin publicar con fecha en los próximos 7 días${
+      E.marca === "all" ? "" : " de esta marca"
+    }.</p></div>`);
+}
+
+// ── Calendario: el de la parrilla, con cada post del color de su marca ──
+function chip(p) {
+  const st = ESTADOS[p.status] ? p.status : "idea";
+  const f = FORMATOS[p.format] ? p.format : "reel";
+  const m = marcaDe(p);
+  const redes = (p.platforms || []).map((r) => REDES[r]).filter(Boolean).join(", ");
+  return `<a class="chip mc m-${m.color} s-${st}${st === "publicado" ? " pub" : ""}" href="${
+    esc(`${BASE}/${p.cliente}#post-${p.id}`)
+  }"${rolDe(p.cliente) === "editor" ? ` data-drag="${esc(`${p.cliente}|${p.id}`)}"` : ""} draggable="false" title="${
+    esc(`${p.title || "Sin título"} · ${m.nombre}`)
+  }"><span class="ct">${p.title ? esc(p.title) : "Sin título"}</span><span class="cm">${
+    p.time ? `<em>${esc(horaCorta(p.time))}</em>` : ""
+  }<i>${fmtIcono(f)}${FORMATOS[f]}</i>${redes ? `<b>${esc(redes)}</b>` : ""}</span><span class="cs cs-${st}">${stIcono(st)}${
+    esc(ESTADOS[st])
+  }</span></a>`;
+}
+function vistaCalendario() {
+  const { y, m } = E, hoy = E.datos.hoy;
+  const primero = new Date(y, m, 1), lead = dowLun(primero), dias = new Date(y, m + 1, 0).getDate();
+  const total = Math.ceil((lead + dias) / 7) * 7;
+  const porDia = {};
+  for (const p of visibles()) {
+    if (!p.date || (!E.verPublicados && p.status === "publicado")) continue;
+    (porDia[p.date] ||= []).push(p);
+  }
+  for (const k in porDia) porDia[k].sort(orden);
+  const mes = `${y}-${dosD(m + 1)}`;
+  if (!E.sel || !E.sel.startsWith(mes)) E.sel = hoy.startsWith(mes) ? hoy : `${mes}-01`;
+  const puedeCrear = editables().length > 0;
+  let celdas = DOW.map((d) => `<div class="dow">${d}</div>`).join("");
+  for (let i = 0; i < total; i++) {
+    const dt = new Date(y, m, i - lead + 1), ds = ymd(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    celdas += `<div class="day${dt.getMonth() !== m ? " out" : ""}${ds === hoy ? " today" : ""}${
+      ds === E.sel ? " sel" : ""
+    }" data-date="${ds}" data-ag="dia"><div class="day-top"><span class="dn">${dt.getDate()}</span>${
+      puedeCrear
+        ? `<button class="add" type="button" data-ag="add" data-date="${ds}" aria-label="Nuevo post el ${dt.getDate()} de ${
+          MESES[dt.getMonth()].toLowerCase()
+        }">+</button>`
+        : ""
+    }</div><div class="chips">${(porDia[ds] || []).map(chip).join("")}</div></div>`;
+  }
+  const delDia = porDia[E.sel] || [];
+  return `<div class="monthbar"><div class="mb-nav"><button class="icon-btn" type="button" data-ag="prev" aria-label="Mes anterior">‹</button><h2>${
+    MESES[m]
+  } <span>${y}</span></h2><button class="icon-btn" type="button" data-ag="next" aria-label="Mes siguiente">›</button></div><button class="btn ghost" type="button" data-ag="hoy">Hoy</button></div>` +
+    barraFiltros(true) + `<div class="cal">${celdas}</div>` +
+    `<section class="agenda"><h3 class="day-h">${fechaLarga(E.sel)}</h3>${
+      delDia.some((p) => rolDe(p.cliente) === "editor")
+        ? '<p class="tip">Mantén presionada una tarjeta y arrástrala a otro día para cambiar su fecha.</p>'
+        : ""
+    }<div class="rows">${
+      delDia.length ? delDia.map((p) => fila(p, true)).join("") : '<p class="muted">Nada planificado este día.</p>'
+    }</div>${
+      puedeCrear ? `<button class="btn" type="button" data-ag="add" data-date="${E.sel}">+ Nuevo post este día</button>` : ""
+    }</section>`;
+}
+
+// ── «+»: ¿para qué marca? (el mismo popup del selector de marca) y se abre su parrilla con «Nuevo post» ──
+function cerrarNuevo() {
+  document.getElementById("agNuevo")?.remove();
+  document.removeEventListener("mousedown", fueraNuevo, true);
+}
+function fueraNuevo(e) {
+  const pop = document.getElementById("agNuevo");
+  if (pop && !pop.contains(e.target) && !e.target.closest('[data-ag="add"]')) cerrarNuevo();
+}
+function menuNuevoPost(boton, dia) {
+  const lista = editables();
+  const destino = (slug) => `${BASE}/${encodeURIComponent(slug)}#nuevo${dia ? `-${dia}` : ""}`;
+  if (lista.length === 1) {
+    location.href = destino(lista[0].slug);
+    return;
+  }
+  const abierto = document.getElementById("agNuevo");
+  cerrarNuevo();
+  if (abierto && abierto.dataset.dia === dia) return;
+  const pop = document.createElement("div");
+  pop.id = "agNuevo";
+  pop.dataset.dia = dia;
+  pop.className = "cli-pop";
+  pop.setAttribute("role", "dialog");
+  pop.setAttribute("aria-label", "¿Para qué marca?");
+  pop.innerHTML = `<p class="cp-vacio">Nuevo post${dia ? ` el ${fechaLarga(dia).toLowerCase()}` : ""} · ¿para qué marca?</p><div class="cp-list">${
+    lista.map((c) => {
+      const m = E.marcas.get(c.slug) || {};
+      return `<a class="cp-it" href="${esc(destino(c.slug))}"><i class="mdot m-${m.color}" aria-hidden="true"></i><b>${
+        esc(c.nombre)
+      }</b>${c.handle ? `<span>@${esc(String(c.handle).replace(/^@/, ""))}</span>` : ""}</a>`;
+    }).join("")
+  }</div>`;
+  document.body.appendChild(pop);
+  const r = boton.getBoundingClientRect();
+  let top = r.bottom + 6;
+  if (top + pop.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - pop.offsetHeight - 6);
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)))}px`;
+  pop.querySelector(".cp-it")?.focus();
+  document.addEventListener("mousedown", fueraNuevo, true);
+}
+
+// ── Menú de estados (el de la parrilla: las mismas píldoras, una debajo de otra) ──
 function cerrarMenuEstado() {
   document.getElementById("agStMenu")?.remove();
-  for (const b of document.querySelectorAll('.ag-st[aria-expanded="true"]')) b.setAttribute("aria-expanded", "false");
+  for (const b of document.querySelectorAll('.stsel[aria-expanded="true"]')) b.setAttribute("aria-expanded", "false");
 }
 function abrirMenuEstado(boton) {
   cerrarMenuEstado();
+  const p = E.datos.posts.find((x) => x.id === boton.dataset.id && x.cliente === boton.dataset.cli);
   const m = document.createElement("div");
   m.id = "agStMenu";
-  m.className = "ag-stmenu";
+  m.className = "stmenu";
   m.setAttribute("role", "menu");
-  const p = agenda.datos.posts.find((x) => x.id === boton.dataset.id && x.cliente === boton.dataset.cli);
-  m.innerHTML = Object.entries(ESTADOS_TODOS).map(([k, v]) =>
-    `<button type="button" role="menuitemradio" aria-checked="${p && p.status === k}" class="ag-st st-${k}" data-ag="stpick" data-v="${k}" data-id="${
+  m.innerHTML = Object.entries(ESTADOS).map(([k, v]) =>
+    `<button class="st st-${k}" type="button" role="menuitemradio" aria-checked="${!!p && p.status === k}" data-ag="stpick" data-v="${k}" data-id="${
       esc(boton.dataset.id)
     }" data-cli="${esc(boton.dataset.cli)}">${stIcono(k)}<span>${v}</span></button>`
   ).join("");
@@ -434,7 +428,7 @@ function abrirMenuEstado(boton) {
   let top = r.bottom + 6;
   if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 6);
   m.style.top = `${Math.round(top)}px`;
-  m.style.left = `${Math.round(Math.min(r.left, window.innerWidth - m.offsetWidth - 8))}px`;
+  m.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8)))}px`;
   boton.setAttribute("aria-expanded", "true");
   (m.querySelector('[aria-checked="true"]') || m.firstElementChild)?.focus();
 }
@@ -443,44 +437,214 @@ document.addEventListener("mousedown", (e) => {
   if (m && !m.contains(e.target) && !e.target.closest('[data-ag="stmenu"]')) cerrarMenuEstado();
 }, true);
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && document.getElementById("agStMenu")) cerrarMenuEstado();
+  if (e.key !== "Escape") return;
+  cerrarMenuEstado();
+  cerrarNuevo();
 });
-window.addEventListener("scroll", cerrarMenuEstado, true);
+window.addEventListener("scroll", () => {
+  cerrarMenuEstado();
+  cerrarNuevo();
+}, true);
 
-async function cambiarEstado(id, cli, estado) {
-  const p = agenda.datos.posts.find((x) => x.id === id && x.cliente === cli);
-  if (!p || p.status === estado) return;
-  const antes = p.status;
-  p.status = estado;
+async function guardarCambio(p, cambios, aviso) {
+  const antes = Object.fromEntries(Object.keys(cambios).map((k) => [k, p[k]]));
+  Object.assign(p, cambios);
   pintar();
   try {
-    await apiCliente(p.cliente, `/api/publicaciones/${encodeURIComponent(p.id)}`, {
-      method: "PATCH",
-      body: { cambios: { status: p.status } },
-    });
-    toast(`${p.title || "Post"}: ${ESTADOS_TODOS[p.status]}`, "ok");
+    await apiMarca(p.cliente, `/api/publicaciones/${encodeURIComponent(p.id)}`, { method: "PATCH", body: { cambios } });
+    toast(aviso, "ok");
   } catch (err) {
-    p.status = antes;
-    toast(err.message || "No se pudo cambiar el estado.");
+    Object.assign(p, antes);
+    toast(err.message || "No se pudo guardar el cambio.");
     pintar();
   }
 }
+
+// ── Clics ──
+document.addEventListener("click", (e) => {
+  if (noClic) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  const b = e.target.closest("[data-ag]");
+  if (!b || !E.datos) return;
+  const t = b.dataset.ag;
+  if (t === "dia") {
+    if (e.target.closest("a, button")) return; // el clic era en un post o en «+»
+    E.sel = b.dataset.date;
+    pintar();
+  } else if (t === "filtros") {
+    E.filtrosAbiertos = !E.filtrosAbiertos;
+    pintar();
+  } else if (t === "limpiar") {
+    E.marca = "all";
+    guardar("pl_ini_marca", "all");
+    pintar();
+  } else if (t === "publicados") {
+    E.verPublicados = !E.verPublicados;
+    guardar("pl_ini_pub", E.verPublicados ? "1" : "0");
+    pintar();
+  } else if (t === "prev" || t === "next") {
+    const d = new Date(E.y, E.m + (t === "next" ? 1 : -1), 1);
+    E.y = d.getFullYear();
+    E.m = d.getMonth();
+    pintar();
+  } else if (t === "hoy") {
+    const h = fecha(E.datos.hoy);
+    E.y = h.getFullYear();
+    E.m = h.getMonth();
+    E.sel = E.datos.hoy;
+    pintar();
+  } else if (t === "add") menuNuevoPost(b, b.dataset.date || "");
+  else if (t === "stmenu") {
+    if (b.getAttribute("aria-expanded") === "true") cerrarMenuEstado();
+    else abrirMenuEstado(b);
+  } else if (t === "stpick") {
+    cerrarMenuEstado();
+    const p = E.datos.posts.find((x) => x.id === b.dataset.id && x.cliente === b.dataset.cli);
+    if (p && p.status !== b.dataset.v) guardarCambio(p, { status: b.dataset.v }, `${p.title || "Post"}: ${ESTADOS[b.dataset.v]}`);
+  }
+}, true);
+document.addEventListener("change", (e) => {
+  if (e.target.dataset.agf !== "marca") return;
+  E.marca = e.target.value;
+  guardar("pl_ini_marca", E.marca);
+  pintar();
+});
+
+// ── Arrastrar un post a otro día (ratón y dedo), como en la parrilla ──
+let DR = null, autoScroll = null, noClic = false;
+const diaEn = (x, y) => document.elementFromPoint(x, y)?.closest?.(".day") || null;
+function moverFantasma() {
+  if (DR?.fantasma) {
+    DR.fantasma.style.left = `${DR.x - 30}px`;
+    DR.fantasma.style.top = `${DR.y - 16}px`;
+  }
+}
+function marcarDestino() {
+  const d = diaEn(DR.x, DR.y);
+  if (DR.sobre && DR.sobre !== d) DR.sobre.classList.remove("drop");
+  if (d) d.classList.add("drop");
+  DR.sobre = d;
+}
+function empezarArrastre() {
+  if (!DR || DR.activo) return;
+  DR.activo = true;
+  clearTimeout(DR.timer);
+  const r = DR.src.getBoundingClientRect();
+  const g = DR.src.cloneNode(true);
+  g.removeAttribute("href");
+  g.removeAttribute("data-drag");
+  g.classList.add("drag-ghost");
+  g.style.width = `${Math.max(150, Math.min(r.width || 200, 300))}px`;
+  document.body.appendChild(g);
+  DR.fantasma = g;
+  DR.src.classList.add("drag-src");
+  document.body.classList.add("dragging");
+  moverFantasma();
+  try {
+    navigator.vibrate?.(12);
+  } catch {}
+  autoScroll = setInterval(() => {
+    if (!DR?.activo) return;
+    const h = window.innerHeight || 600;
+    if (DR.y < 70) window.scrollBy(0, -14);
+    else if (DR.y > h - 70) window.scrollBy(0, 14);
+    marcarDestino();
+  }, 30);
+}
+function terminarArrastre(soltar) {
+  if (!DR) return;
+  const d = DR;
+  DR = null;
+  clearTimeout(d.timer);
+  clearInterval(autoScroll);
+  if (d.activo) {
+    noClic = true;
+    setTimeout(() => (noClic = false), 400);
+    d.sobre?.classList.remove("drop");
+    d.fantasma?.remove();
+    d.src.classList.remove("drag-src");
+    document.body.classList.remove("dragging");
+    const dia = soltar ? diaEn(d.x, d.y) : null;
+    const [cli, id] = d.id.split("|");
+    const p = E.datos.posts.find((x) => x.id === id && x.cliente === cli);
+    if (dia?.dataset.date && p && p.date !== dia.dataset.date) {
+      E.sel = dia.dataset.date;
+      const f = fecha(dia.dataset.date);
+      guardarCambio(p, { date: dia.dataset.date }, `Movido al ${f.getDate()} de ${MESES[f.getMonth()].toLowerCase()}`);
+      pendientePintar = false;
+      return;
+    }
+  }
+  if (pendientePintar) {
+    pendientePintar = false;
+    pintar();
+  }
+}
+document.addEventListener("pointerdown", (e) => {
+  if (pestana() !== "calendario" || DR || (e.pointerType === "mouse" && e.button !== 0)) return;
+  if (e.target.closest(".stsel, select")) return;
+  const src = e.target.closest("[data-drag]");
+  if (!src) return;
+  DR = {
+    id: src.dataset.drag,
+    src,
+    x: e.clientX,
+    y: e.clientY,
+    sx: e.clientX,
+    sy: e.clientY,
+    dedo: e.pointerType !== "mouse",
+    activo: false,
+    pid: e.pointerId,
+    sobre: null,
+    fantasma: null,
+    timer: null,
+  };
+  if (DR.dedo) DR.timer = setTimeout(empezarArrastre, 300);
+});
+document.addEventListener("pointermove", (e) => {
+  if (!DR || e.pointerId !== DR.pid) return;
+  DR.x = e.clientX;
+  DR.y = e.clientY;
+  if (!DR.activo) {
+    const dx = Math.abs(DR.x - DR.sx), dy = Math.abs(DR.y - DR.sy);
+    if (DR.dedo) {
+      if (dx > 10 || dy > 10) terminarArrastre(false);
+    } else if (dx > 5 || dy > 5) empezarArrastre();
+    return;
+  }
+  moverFantasma();
+  marcarDestino();
+});
+document.addEventListener("pointerup", (e) => {
+  if (DR && e.pointerId === DR.pid) terminarArrastre(true);
+});
+document.addEventListener("pointercancel", (e) => {
+  if (DR && e.pointerId === DR.pid) terminarArrastre(false);
+});
+document.addEventListener("touchmove", (e) => {
+  if (DR?.activo && e.cancelable) e.preventDefault();
+}, { passive: false });
+document.addEventListener("contextmenu", (e) => {
+  if (DR?.activo) e.preventDefault();
+});
 
 async function boot() {
   let s;
   try {
     s = await api("/api/sesion");
   } catch (e) {
-    root.innerHTML =
-      `<div class="login"><div class="card"><h1>No se pudo cargar</h1><p class="muted">${
-        esc(e.message)
-      }</p></div></div>`;
+    root.innerHTML = `<div class="login"><div class="card"><h1>No se pudo cargar</h1><p class="muted">${
+      esc(e.message)
+    }</p></div></div>`;
     return;
   }
   if (!s.usuario) return vistaLogin();
   const v = volver();
   if (v) return location.replace(v);
-  vistaClientes(s);
+  vistaInicio(s);
 }
 
 boot();

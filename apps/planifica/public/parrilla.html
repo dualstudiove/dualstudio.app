@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="/css/tema.css">
     <link rel="stylesheet" href="/css/app.css">
     <link rel="stylesheet" href="/css/parrilla.css">
+    <link rel="stylesheet" href="/css/componentes.css">
   </head>
   <body>
     <div class="wrap" id="app">
@@ -22,15 +23,15 @@
         <div class="top-row">
           <div class="brand">
             <a href="/" class="mark"
-              aria-label="Planifica: tus clientes"><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i class="on"></i></a>
+              aria-label="Planifica: inicio"><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i class="on"></i></a>
             <span class="brand-name">Planifica</span>
           </div>
           <span class="tsep" aria-hidden="true"></span>
           <div class="cli">
-            <a class="cli-name" id="volver" href="/" title="Cambiar de cliente"><span class="cli-l1"><b id="cliente-nombre"></b><svg
+            <a class="cli-name" id="volver" href="/" title="Cambiar de marca"><span class="cli-l1"><b id="cliente-nombre"></b><svg
                 viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6.5l3-3 3 3M5 9.5l3 3 3-3" /></svg></span><span
-                class="cli-acct" id="acct" hidden></span><span class="sr">Cambiar de cliente</span></a>
+                class="cli-acct" id="acct" hidden></span><span class="sr">Cambiar de marca</span></a>
           </div>
           <div class="tacts">
             <a class="btn ghost ver-cliente" id="verCliente" href="#" hidden title="Ver la parrilla como la ve el cliente (solo lectura)"><svg
@@ -39,7 +40,7 @@
                   cx="8" cy="8" r="2" /></svg><span class="vc-l">Ver como cliente</span></a>
             <button class="btn primary" id="newPost" type="button"
               data-act="new">+ <span class="nw-long">Nuevo post</span><span class="nw-short">Nuevo</span></button>
-            <button class="btn ghost salir" id="salir" type="button">Salir</button>
+            <span id="avatar"></span>
           </div>
         </div>
         <nav class="tabs" aria-label="Vistas">

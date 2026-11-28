@@ -15,6 +15,7 @@
 // Los cambios propios que aún no confirmó el servidor se superponen a lo que llega en cada refresco, para que nada
 // de lo que escribes «salte hacia atrás».
 import { basePath, crearApi } from "../_ds/comun/web/api.js";
+import { montarCabecera } from "./cabecera.js";
 
 const BASE = basePath(import.meta.url, 1);
 const CLIENTE = decodeURIComponent(location.pathname.slice(BASE.length).split("/")[1] || "")
@@ -37,7 +38,7 @@ window.PLANIFICA = {
   redes: { conexiones: {}, metricas: {}, cuentaMes: {} },
   api: (ruta, opciones) => api(ruta, opciones),
   url: (ruta) => API + ruta,
-  /** Tus clientes (para elegir con quién se comparte un post en colaboración). */
+  /** Tus marcas (para elegir con quién se comparte un post en colaboración). */
   sesion: () => apiRaiz("/api/sesion"),
   /** Pide los datos de nuevo (tras vincular o actualizar métricas) y avisa a la parrilla si cambiaron. */
   refrescar: () => refrescar().then(() => programar()),
@@ -117,133 +118,8 @@ function pintarCabecera() {
     f.appendChild(a);
     document.body.prepend(f);
   }
-  // «← Mis clientes» vuelve al inicio (lista de clientes, tu cuenta y, si eres administrador, el equipo);
-  // «Salir» cierra la sesión.
-  const volver = document.getElementById("volver");
-  // La cabecera se repinta con cada refresco: el selector se engancha una sola vez (si no, con dos oyentes uno abre
-  // el popup y el otro lo cierra en el mismo clic).
-  if (volver && !volver.dataset.selector) {
-    volver.dataset.selector = "1";
-    volver.href = `${BASE}/`;
-    volver.setAttribute("aria-haspopup", "dialog");
-    volver.setAttribute("aria-expanded", "false");
-    volver.addEventListener("click", (e) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; // abrir en otra pestaña: el inicio, como siempre
-      e.preventDefault();
-      if (document.getElementById("cliPop")) cerrarSelector();
-      else abrirSelector(volver);
-    });
-  }
-}
-
-// ── Selector rápido de clientes (el nombre con las flechitas) ──
-// Abre una lista de tus clientes para saltar de uno a otro sin pasar por el inicio. Se mantiene la pestaña en la
-// que estabas (Rendimiento, Lista…), salvo el detalle de un post, que es de este cliente.
-let clientesCache = null;
-const escHtml = (t) =>
-  String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-
-function cerrarSelector() {
-  const pop = document.getElementById("cliPop");
-  if (pop) pop.remove();
-  document.removeEventListener("mousedown", fueraDelSelector, true);
-  document.removeEventListener("keydown", teclaSelector, true);
-  window.removeEventListener("resize", cerrarSelector);
-  const v = document.getElementById("volver");
-  if (v) v.setAttribute("aria-expanded", "false");
-}
-function fueraDelSelector(e) {
-  const pop = document.getElementById("cliPop"), v = document.getElementById("volver");
-  if (pop && !pop.contains(e.target) && !(v && v.contains(e.target))) cerrarSelector();
-}
-function teclaSelector(e) {
-  const pop = document.getElementById("cliPop");
-  if (!pop) return;
-  if (e.key === "Escape") {
-    e.preventDefault();
-    cerrarSelector();
-    document.getElementById("volver")?.focus();
-    return;
-  }
-  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-  const items = [...pop.querySelectorAll(".cp-it:not([hidden])")];
-  if (!items.length) return;
-  e.preventDefault();
-  const i = items.indexOf(document.activeElement);
-  const j = e.key === "ArrowDown" ? (i + 1) % items.length : i <= 0 ? items.length - 1 : i - 1;
-  items[j].focus();
-}
-function destinoDe(slug) {
-  const h = location.hash.startsWith("#post-") ? "" : location.hash;
-  return `${BASE}/${encodeURIComponent(slug)}${PREVIEW ? "/preview" : ""}${h}`;
-}
-function pintarSelector(pop, clientes) {
-  const activos = clientes.filter((c) => c.activo || c.slug === CLIENTE);
-  const buscar = activos.length > 6;
-  pop.innerHTML =
-    (buscar
-      ? '<input class="in cp-q" type="search" placeholder="Buscar cliente…" aria-label="Buscar cliente" autocomplete="off">'
-      : "") +
-    `<div class="cp-list" role="list">${activos
-      .map(
-        (c) =>
-          `<a class="cp-it" role="listitem" href="${escHtml(destinoDe(c.slug))}" data-q="${escHtml(
-            `${c.nombre} ${c.handle || ""}`.toLowerCase(),
-          )}"${c.slug === CLIENTE ? ' aria-current="page"' : ""}><b>${escHtml(c.nombre)}</b>${
-            c.handle ? `<span>@${escHtml(String(c.handle).replace(/^@/, ""))}</span>` : ""
-          }${c.slug === CLIENTE ? '<i aria-hidden="true">✓</i>' : ""}</a>`,
-      )
-      .join("")}</div>` +
-    '<p class="cp-vacio" hidden>Ningún cliente con ese nombre.</p>' +
-    `<a class="cp-todos" href="${BASE}/">Ver todos los clientes</a>`;
-  const q = pop.querySelector(".cp-q");
-  if (q) {
-    q.addEventListener("input", () => {
-      const t = q.value.trim().toLowerCase();
-      let n = 0;
-      for (const it of pop.querySelectorAll(".cp-it")) {
-        it.hidden = !!t && !it.dataset.q.includes(t);
-        if (!it.hidden) n++;
-      }
-      pop.querySelector(".cp-vacio").hidden = n > 0;
-    });
-    q.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      const it = pop.querySelector(".cp-it:not([hidden])");
-      if (it) location.href = it.href;
-    });
-    q.focus();
-  } else {
-    (pop.querySelector('.cp-it[aria-current="page"]') || pop.querySelector(".cp-it"))?.focus();
-  }
-}
-async function abrirSelector(boton) {
-  const pop = document.createElement("div");
-  pop.id = "cliPop";
-  pop.className = "cli-pop";
-  pop.setAttribute("role", "dialog");
-  pop.setAttribute("aria-label", "Cambiar de cliente");
-  const r = boton.getBoundingClientRect();
-  pop.style.top = `${Math.round(r.bottom + 6)}px`;
-  pop.style.left = `${Math.max(8, Math.min(Math.round(r.left), window.innerWidth - 288))}px`;
-  pop.innerHTML = '<p class="cp-vacio">Cargando clientes…</p>';
-  document.body.appendChild(pop);
-  boton.setAttribute("aria-expanded", "true");
-  document.addEventListener("mousedown", fueraDelSelector, true);
-  document.addEventListener("keydown", teclaSelector, true);
-  window.addEventListener("resize", cerrarSelector);
-  if (clientesCache) pintarSelector(pop, clientesCache);
-  try {
-    const s = await apiRaiz("/api/sesion");
-    if (!document.body.contains(pop)) return;
-    const antes = JSON.stringify(clientesCache);
-    clientesCache = s.clientes || [];
-    if (antes !== JSON.stringify(clientesCache) || !pop.querySelector(".cp-list")) pintarSelector(pop, clientesCache);
-  } catch {
-    if (document.body.contains(pop) && !clientesCache) {
-      pop.innerHTML = `<p class="cp-vacio">No se pudo cargar la lista.</p><a class="cp-todos" href="${BASE}/">Ver todos los clientes</a>`;
-    }
-  }
+  // El selector de marca y la foto (menú de la cuenta): cabecera.js, la misma del inicio y la configuración.
+  montarCabecera({ actual: CLIENTE, preview: PREVIEW });
 }
 
 async function refrescar() {
@@ -444,9 +320,9 @@ const listo = refrescar().then(() => {
   const main = document.getElementById("main");
   if (main) {
     main.innerHTML =
-      '<div class="empty" style="margin-top:24px"><h3></h3><p></p><div class="acts"><a class="btn" href="">Ir a mis clientes</a></div></div>';
+      '<div class="empty" style="margin-top:24px"><h3></h3><p></p><div class="acts"><a class="btn" href="">Ir al inicio</a></div></div>';
     main.querySelector("h3").textContent = e.status === 404
-      ? "No tienes acceso a este cliente"
+      ? "No tienes acceso a esta marca"
       : "No se pudo cargar";
     main.querySelector("p").textContent = e.status === 404
       ? "Puede que no exista o que no te hayan dado acceso. Pídeselo a un administrador."
@@ -466,11 +342,6 @@ window.claude = {
       return capacidades[nombre];
     }),
 };
-
-document.getElementById("salir")?.addEventListener("click", async () => {
-  await apiRaiz("/api/logout", { method: "POST" }).catch(() => {});
-  location.replace(`${BASE}/`);
-});
 
 // «Ver como cliente» abre la misma vista (pestaña) en la que estás.
 window.addEventListener("hashchange", () => {

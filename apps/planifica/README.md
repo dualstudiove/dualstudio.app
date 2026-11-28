@@ -8,9 +8,9 @@ Nació como el artefacto «Parrilla de Contenido» de claude.ai (del que tambié
 
 | Dirección                            | Qué es                                                                                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dualstudio.app/planifica`           | Iniciar sesión. Con un solo cliente se entra directo; con varios, se elige. También está «Tu cuenta» (nombre, contraseña, cerrar sesiones). |
+| `dualstudio.app/planifica`           | Iniciar sesión. Con una sola marca se entra directo; si no, el inicio «Todos»: Próximos y Calendario de todas tus marcas. |
 | `dualstudio.app/planifica/<cliente>` | La parrilla del cliente: Rendimiento (con Ads), Lista, Calendario, Objetivos y Pauta. Con `/preview` al final, la vista del cliente.        |
-| `dualstudio.app/planifica/admin`     | Clientes y equipo (solo administradores).                                                                                                   |
+| `dualstudio.app/planifica/configuracion` | Configuración: Mi cuenta (todos), Personas y Marcas (administradores). `/admin` lleva aquí.                   |
 
 ## Papeles
 
@@ -37,7 +37,8 @@ Un cliente sin acceso responde como si no existiera, y ninguna consulta cruza cl
 | `src/almacen.js`                                               | Las imágenes, con un almacenamiento intercambiable (hoy D1).                                                                               |
 | `public/parrilla.html` + `js/parrilla.js` + `css/parrilla.css` | La parrilla, portada del artefacto casi sin cambios.                                                                                       |
 | `public/js/conexion.js`                                        | Puente entre la parrilla y la API. Ofrece la misma interfaz que claude.ai daba al artefacto: datos en vivo, usuario, imágenes y descargas. |
-| `public/index.html`, `admin.html`                              | Inicio y administración, con los componentes del sistema de diseño.                                                                        |
+| `public/index.html`, `config.html` + `js/inicio.js`, `js/config.js` | Inicio («Todos») y configuración, con los mismos componentes que la parrilla.                              |
+| `public/js/cabecera.js` + `css/componentes.css` | Cabecera común (selector de marca y foto con el menú de la cuenta), colores de marca y área de configuración. Todas las páginas cargan `parrilla.css` (componentes de la app) y `componentes.css`. |
 | `public/css/tema.css`                                          | Acento morado. Los formatos usan los colores de categoría del padre, salvo Diseño, que lleva su propio cian.                               |
 | `construir.js`                                                 | Copia jsPDF (local, sin CDN) a `/vendor` al compilar.                                                                                      |
 
@@ -46,7 +47,7 @@ Un cliente sin acceso responde como si no existiera, y ninguna consulta cruza cl
 - **Cambios de otras personas:** la parrilla se refresca cada 30 s mientras la pestaña está visible, al volver a ella y tras cada cambio propio. Cuando no hubo cambios, el servidor responde con una sola lectura en la base.
 - **Guardado:** es automático, igual que en el artefacto. Lo que escribes se ve al instante y se confirma con el servidor.
 - **Carpeta de Drive:** cada publicación tiene un campo para pegar el link de su carpeta de Drive con los contenidos. Se abre desde el post, desde la Lista y la Pauta (ícono «Drive») y queda como enlace en el PDF de la pauta. Si se pega sin `https://`, se añade solo.
-- **Imágenes de referencia:** el navegador las reduce a 1080 px y las guarda en WebP, de unos 40 a 90 KB cada una. Hay un tope de 400 KB por imagen y de 50 MB por cliente (el uso aparece en Clientes y equipo), y se borran con su publicación.
+- **Imágenes de referencia:** el navegador las reduce a 1080 px y las guarda en WebP, de unos 40 a 90 KB cada una. Hay un tope de 400 KB por imagen y de 50 MB por cliente (el uso aparece en Configuración → Marcas), y se borran con su publicación.
   - Hoy se guardan en D1. Para pasarlas a otro sitio (por ejemplo Google Drive, una carpeta por cliente) se añade un almacén en `src/almacen.js`; el resto de la app no cambia. Para Drive hará falta conectar una cuenta de Google.
 - **Topes diarios por cliente**, guardados en la base: 5 000 cambios y 200 imágenes. Frenan un uso desbocado antes de que agote la cuota gratuita de la cuenta.
 
@@ -60,13 +61,13 @@ Un cliente sin acceso responde como si no existiera, y ninguna consulta cruza cl
 
 **Lista.** Siempre continua: todos los meses en una sola lista. En **Filtros**, además de plataforma, formato, estado y búsqueda: **Agrupar** por mes (cada mes con su cabecera: tema, «Posts X de Y», **Objetivos**, que abre el resumen del mes en una ventana con «Editar objetivos», y «+ Post») o por estado. El ojito **Detallada** cambia entre la vista **simplificada** (tarjetas; en Filtros se ordena por fecha o formato) y la **detallada**, al estilo de ClickUp: una sola tabla con el encabezado fijo bajo la cabecera de la app (fecha, título, formato, redes, pauta, Drive y estado) que se **ordena tocando los encabezados** (otra vez invierte el orden). Las celdas se ven como texto y al pasar el mouse se nota qué se edita: el título abre el post y su lápiz lo renombra ahí (Enter guarda, Escape deshace); fecha y hora van juntas («Jue, 19 nov / 7pm» o «Jue, 19 nov / 7:13pm») con un popup de calendario y hora opcional; redes («IG, TT») abre una selección múltiple; formato y estado, sus menús; pauta, una casilla. En móvil solo hay simplificada. Lo publicado va recogido (arriba por mes, al final por estado) y las ideas sin fecha al final. Las elecciones se recuerdan en el navegador.
 
-**Agenda (inicio).** Pestaña **Agenda** junto a Próximos y Clientes: los posts de todos tus clientes en una sola lista por meses, con las mismas tarjetas de la Lista (fecha, título, formato, redes y la píldora de estado con su menú), agrupadas por día y con el color de su cliente (chips arriba para mostrar u ocultar clientes). Lo publicado de los últimos 3 meses va recogido arriba y las ideas sin fecha al final. Desde ahí se cambia el estado y se crean posts: «Nuevo post» pregunta el cliente y abre su parrilla con la ventana de nuevo post (`#nuevo`). `GET /api/agenda`.
+**Inicio «Todos»: Próximos y Calendario.** Con sesión, el inicio muestra todas tus marcas activas (el administrador ve todas) en dos pestañas, con los componentes de la parrilla (filas, filtros, calendario y menú de estado). **Próximos**: los posts sin publicar en tres grupos, **Atrasados** (fecha de hasta 30 días atrás), **Por publicar** (listos, de hoy a 7 días) y **Aún no listos** (con fecha de hoy a 7 días). **Calendario**: el mismo calendario de la parrilla, con cada post del color de su marca, el ojito «Publicados» y la leyenda de marcas; arrastrar un post a otro día cambia su fecha y el «+» de cada día pregunta la marca y abre su parrilla con «Nuevo post» en ese día (`#nuevo-AAAA-MM-DD`). Las dos pestañas comparten el botón **Filtros** (Marca), que se recuerda en el navegador. Ambas salen de una sola consulta (`GET /api/agenda`, todos los posts de tus marcas).
 
 **Colaboraciones.** Un post puede compartirse con otros clientes (campo **Colaboración** en la cabecera del post): es **un solo post**, sin copias, que aparece en la parrilla de cada cliente con la etiqueta 🤝 y se edita igual desde cualquiera (quien sea editor de alguno de ellos). Su dueño es el cliente que lo creó: desde esa cuenta «se publica», su link y sus métricas se leen con su conexión y se ven en todas. Cuenta para las metas de todos. Los impulsos registrados en otra cuenta se ven en el post («de otra cuenta») pero no suman al presupuesto de este cliente. Quien comparte puede **quitarlo de su cuenta** (sigue en las demás); el dueño lo **elimina** para todos. En la Agenda y Próximos sale una sola vez. Tabla `publicaciones_colab`; `PUT /<cliente>/api/publicaciones/:id/colab { clientes: [slug…] }` (para sumar un cliente hay que ser editor de él).
 
-**Inicio: Próximos, Agenda y Clientes.** Al entrar, el inicio abre la pestaña **Próximos**: los posts sin publicar de todos los clientes activos que tienes asignados (el administrador ve todos), en tres grupos: **Atrasados** (fecha de hasta 30 días atrás y aún sin publicar), **Por publicar** (de hoy a 7 días) y **Aún no listos** (con fecha de hoy a 7 días en cualquier otro estado), cada uno ordenado por fecha, con las mismas tarjetas de la Agenda (y su menú de estado). Próximos y Agenda salen de una sola consulta (`GET /api/agenda`). La pestaña **Clientes** tiene la lista de siempre y «Tu cuenta».
+**Cabecera y configuración.** Todas las páginas llevan la misma barra: logo, el selector de marca («Todos» lleva al inicio; cada marca, con su punto de color, a su parrilla) y la foto de perfil (o las iniciales), que abre Mi cuenta, Personas y Marcas (estas dos, solo administradores) y Cerrar sesión. **Configuración** (`/configuracion`) tiene una barra lateral: **Mi cuenta** (foto, que el navegador recorta en cuadrado de 256 px; nombre; contraseña; cerrar las demás sesiones), **Personas** (cada persona con sus marcas, «edita» o «solo ve»; Editar cambia nombre, correo, administrador, marcas, contraseña y activa) y **Marcas** (color, @cuenta, Instagram, personas; el menú ⋯ tiene Editar, Instagram, Importar parrilla, Archivar y Eliminar; las archivadas van plegadas). El color de una marca se elige entre 8 (`COLORES_MARCA` en `src/validar.js`, tokens `--marca-*` en `tema.css`); sin elegir, se asigna por orden. Fotos: tabla `usuarios_fotos`, `PUT`/`DELETE /api/cuenta/foto`, `GET /api/fotos/:id?v=…` (con sesión).
 
-**Cambiar de cliente:** en la parrilla, el nombre del cliente con su @cuenta (un solo botón) abre una lista para saltar a otro cliente sin volver al inicio (se queda en la misma pestaña: Rendimiento, Lista…); con más de 6 clientes trae un buscador. El logo sigue llevando al inicio. La @cuenta de Instagram del cliente solo la cambia un administrador, en «Clientes y equipo».
+**Cambiar de marca:** dentro de una marca, el selector salta a otra sin volver al inicio (se queda en la misma pestaña: Rendimiento, Lista…); con más de 6 marcas trae un buscador. La @cuenta de Instagram de la marca solo la cambia un administrador, en Configuración → Marcas.
 
 ## Métricas de Instagram
 
@@ -74,7 +75,7 @@ Planifica trae las métricas de la cuenta de Instagram de cada cliente y las mue
 
 Las **historias** no tienen métricas ni impulsos: no muestran el link de Instagram, no cuentan en Rendimiento ni en Objetivos y no se pueden elegir al registrar un impulso.
 
-- **Conectar con Meta:** en Clientes y equipo → **Instagram → Conectar con Meta**. Lleva a Meta (app «Planifica Dual Studio», configuración de inicio de sesión unificado), donde se elige la cuenta de Instagram del cliente y su cuenta publicitaria; al volver, Planifica guarda el token de usuario del sistema (no vence) cifrado y lee todo de `graph.facebook.com` (`src/redes/meta.js`). Si se autorizan varias cuentas, pregunta cuál es la del cliente.
+- **Conectar con Meta:** en Configuración → Marcas → **⋯ → Instagram → Conectar con Meta**. Lleva a Meta (app «Planifica Dual Studio», configuración de inicio de sesión unificado), donde se elige la cuenta de Instagram del cliente y su cuenta publicitaria; al volver, Planifica guarda el token de usuario del sistema (no vence) cifrado y lee todo de `graph.facebook.com` (`src/redes/meta.js`). Si se autorizan varias cuentas, pregunta cuál es la del cliente.
   - Hace falta el secreto **`META_APP_SECRET`** (la clave secreta de la app de Meta) en Cloudflare, en producción y en las vistas previas. `META_APP_ID` y `META_CONFIG_ID` están en `wrangler.jsonc`.
   - En la configuración de Meta se registra la dirección de vuelta: `https://dualstudio.app/planifica/redes/meta/vuelta` (y la de las vistas previas, con su dominio).
   - Alternativa: **pegar un token** del inicio de sesión de Instagram (dura 60 días y Planifica lo renueva sola).
@@ -105,7 +106,7 @@ Quien edita tiene el botón **Ver como cliente**: abre `dualstudio.app/planifica
 
 ## Importar una Parrilla de Contenido
 
-Ve a Clientes y equipo → **Importar** en un cliente y elige el archivo `.json` de exportación (`formato: "parrilla-v1"`). La importación:
+Ve a Configuración → Marcas → **⋯ → Importar parrilla** en una marca y elige el archivo `.json` de exportación (`formato: "parrilla-v1"`). La importación:
 
 - suma las publicaciones;
 - reemplaza los objetivos del mismo periodo;
@@ -139,5 +140,5 @@ npm test
 
    Los mismos tres van en los secretos de las vistas previas.
 4. **Entra y limpia:** entra a `dualstudio.app/planifica` con ese correo y **borra** `SUPER_EMAIL` y `SUPER_PASSWORD`. Se aplican una sola vez; mientras sigan guardados, el inicio muestra un aviso.
-5. **Datos:** en Clientes y equipo, crea el cliente e importa su Parrilla.
+5. **Datos:** en Configuración → Marcas, crea la marca e importa su Parrilla.
 6. **Central:** en `apps/central/apps.json`, cambia el estado de Planifica a `"pruebas"` para que aparezca con enlace en dualstudio.app.
