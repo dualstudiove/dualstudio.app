@@ -27,7 +27,7 @@ export const CAMPOS_PUBLICACION = new Set([
   "grabarEn", // mes de la pauta en que se graba (AAAA-MM); vacío = el de su fecha de publicación
 ]);
 export const FORMATOS = new Set(["reel", "carrusel", "foto", "historia", "diseno"]);
-export const ESTADOS = new Set(["idea", "contenido", "porproducir", "produccion", "listo", "publicado"]);
+export const ESTADOS = new Set(["idea", "contenido", "porproducir", "produccion", "terminado", "listo", "publicado"]);
 export const PLATAFORMAS = new Set(["ig", "tt"]);
 
 const MAX_PUBLICACION = 64 * 1024; // bytes del JSON de una publicación

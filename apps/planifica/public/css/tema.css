@@ -4,7 +4,8 @@
 
    · Acento: el morado del padre (--cat-5).
    · Formatos de publicación: reel, carrusel, foto e historia usan los colores de categoría 1 a 4 del padre.
-     Diseño tiene su propio tono (cian) para no confundirse con el acento morado. */
+     Diseño tiene su propio tono (cian) para no confundirse con el acento morado.
+   · Estados: los semánticos del padre (info, warn, ok…) más --st-terminado («Listo»), con el cian de Diseño. */
 @layer app.tema {
   :root {
     --accent: #6d3fd1;
@@ -19,6 +20,9 @@
     --fmt-historia-bg: var(--cat-4-bg);
     --fmt-diseno: #0b7590;
     --fmt-diseno-bg: #ddf1f6;
+    /* Estado «Listo» (entre En producción y Por publicar) */
+    --st-terminado: var(--fmt-diseno);
+    --st-terminado-bg: var(--fmt-diseno-bg);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {

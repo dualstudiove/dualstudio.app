@@ -460,6 +460,10 @@
     --sc: var(--accent);
     --sbg: var(--accent-bg);
   }
+  .ag-st.st-terminado {
+    --sc: var(--st-terminado);
+    --sbg: var(--st-terminado-bg);
+  }
   .ag-st.st-listo {
     --sc: var(--ok);
     --sbg: var(--ok-bg);

@@ -363,6 +363,10 @@
     --sc: var(--accent);
     --sbg: var(--accent-bg);
   }
+  .st-terminado {
+    --sc: var(--st-terminado);
+    --sbg: var(--st-terminado-bg);
+  }
   .st-listo {
     --sc: var(--ok);
     --sbg: var(--ok-bg);
@@ -3122,6 +3126,10 @@
   .chip.s-produccion {
     --c: var(--accent);
     --cbg: var(--accent-bg);
+  }
+  .chip.s-terminado {
+    --c: var(--st-terminado);
+    --cbg: var(--st-terminado-bg);
   }
   .chip.s-listo {
     --c: var(--ok);

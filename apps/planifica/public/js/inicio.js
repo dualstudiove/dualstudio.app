@@ -169,7 +169,14 @@ function vistaClientes(s) {
 }
 
 // ── Próximos y Agenda: los posts de todos tus clientes (una sola consulta, las mismas tarjetas) ──
-const ESTADOS = { idea: "Idea", contenido: "Contenido", porproducir: "Por producir", produccion: "En producción", listo: "Por publicar" };
+const ESTADOS = {
+  idea: "Idea",
+  contenido: "Contenido",
+  porproducir: "Pautado",
+  produccion: "En producción",
+  terminado: "Listo",
+  listo: "Por publicar",
+};
 const FORMATOS = { reel: "Reel", carrusel: "Carrusel", foto: "Foto", historia: "Historia", diseno: "Diseño" };
 const REDES = { ig: "IG", tt: "TT" };
 
@@ -264,7 +271,8 @@ const ST_ICON = {
   contenido: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 11.005 4.995z"/>',
   porproducir: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 0 1 12.25 8z"/>',
   produccion: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 3.75a4.25 4.25 0 0 1 0 8.5z"/>',
-  listo: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 1 1 3.75 8z"/>',
+  terminado: '<circle cx="8" cy="8" r="6.25"/><path class="fl" d="M8 8V3.75A4.25 4.25 0 1 1 3.75 8z"/>',
+  listo: '<circle cx="8" cy="8" r="6.25"/><circle class="fl" cx="8" cy="8" r="4.25"/>',
   publicado: '<circle class="fl" cx="8" cy="8" r="7"/><path class="ck" d="M5.2 8.2l1.9 1.9 3.7-4"/>',
 };
 const CHEV =
