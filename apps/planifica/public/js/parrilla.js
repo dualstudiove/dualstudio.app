@@ -499,7 +499,7 @@
   /* ---------- Routing ---------- */
   var LISTS = ["lista", "calendario", "objetivos", "pauta", "rendimiento"];
   function route() {
-    var h = location.hash.replace(/^#/, ""), prev = S.view;
+    var h = location.hash.replace(/^#/, "");
     if (h === "resultados") h = "rendimiento"; // nombre anterior de la pestaña
     // #nuevo (o #nuevo-AAAA-MM-DD): llegar desde la Agenda del inicio para crear un post aquí
     if (h === "nuevo" || /^nuevo-\d{4}-\d{2}-\d{2}$/.test(h)) {
@@ -520,8 +520,6 @@
     }
     if (S.view === "lista" || S.view === "calendario") S.last = S.view;
     if (S.view !== "objetivos") S.goalsEdit = false;
-    // Lista «Todos»: al llegar (no al volver de un post) se ubica en el mes actual
-    if (S.view === "lista" && prev !== "lista" && prev !== "detalle") S.lmScroll = true;
   }
   function go(h) {
     if (location.hash === "#" + h) {
@@ -1201,17 +1199,6 @@
     if (ti && document.activeElement !== ti) {
       ti.focus();
       ti.select();
-    }
-    if (S.lmScroll) {
-      S.lmScroll = false;
-      var sec = S.lgroup === "mes" && document.getElementById("lm-" + todayStr().slice(0, 7));
-      if (sec) {
-        var tp = document.querySelector(".top"), th = document.querySelector(".ltable thead");
-        var top = sec.getBoundingClientRect().top + window.scrollY - (tp ? tp.offsetHeight : 0) - (th ? th.offsetHeight : 0) - 8;
-        setTimeout(function () {
-          window.scrollTo(0, top);
-        }, 0);
-      }
     }
   }
   /* «Objetivos» de un mes: su resumen (tema, objetivos y posts) en una ventana, con un enlace para editarlos. */
