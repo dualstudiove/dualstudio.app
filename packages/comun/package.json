@@ -12,5 +12,5 @@
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
   },
-  "dependencies": { "hono": "^4.6.0" }
+  "dependencies": { "hono": "^4.13.22" }
 }
