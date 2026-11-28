@@ -560,11 +560,11 @@
     S.cy = y;
     S.selDay = null;
   }
-  /** Objetivos y Rendimiento por trimestre avanzan de 3 en 3 meses. */
+  /** Objetivos por trimestre (o editando, que es por trimestre) avanza de 3 en 3 meses. */
   function isQ() {
-    return S.view === "objetivos" || (S.view === "rendimiento" && S.resPer === "q");
+    return S.view === "objetivos" && (S.objPer === "q" || !!(S.goalsEdit && S.canWrite));
   }
-  function monthBar() {
+  function monthBar(extra) {
     var q = isQ(), qn = Math.floor(S.cm / 3);
     var title = q
       ? ("T" + (qn + 1) + " <span>" + S.cy + "</span>")
@@ -576,8 +576,8 @@
       "<h2>" + title + "</h2>" + sub +
       '<button class="icon-btn" type="button" data-act="next" aria-label="' +
       (q ? "Trimestre siguiente" : "Mes siguiente") + '">›</button></div>' +
-      '<button class="btn ghost" type="button" data-act="today">' + (q ? "Este trimestre" : "Hoy") +
-      "</button></div>";
+      '<div class="mb-r">' + (extra || "") + '<button class="btn ghost" type="button" data-act="today">' + (q ? "Este trimestre" : "Hoy") +
+      "</button></div></div>";
   }
   /* Iconos de estado progresivos: círculo punteado → ⅛ → ¼ → ½ → ¾ → lleno → hecho. */
   var ST_ICON = {
@@ -632,7 +632,9 @@
     var qn = Math.floor(m / 3) + 1;
     var g = S.goals.get("m-" + monthKey(y, m)) || {}, qg = S.goals.get("q-" + y + "-" + qn) || {};
     var st = stats(y, m), objs = lines(g.objectives), tgt = Number(g.postTarget) || 0;
-    var def = '<p class="hg-empty">Sin definir. <a class="lnk" href="#objetivos">Definir</a></p>';
+    var def = '<p class="hg-empty">Sin definir.' + (!S.canWrite ? "" : S.view === "objetivos"
+      ? ' <button class="lnk" type="button" data-act="goalsedit">Definir</button>'
+      : ' <a class="lnk" href="#objetivos">Definir</a>') + "</p>";
     var h = '<section class="hd" aria-label="Resumen de ' + MONTHS[m].toLowerCase() + '">';
     h += '<div class="hg"><span class="k">Tema del mes</span>' +
       (g.theme ? '<p class="hg-main">' + esc(g.theme) + "</p>" : def) +
@@ -1993,7 +1995,8 @@
       // Dentro de Rendimiento: la sección ya tiene su título y el botón «Ver objetivos».
       return '<div class="card">' + (tiles.length
         ? '<div class="gtiles">' + tiles.join("") + "</div>"
-        : '<p class="gv-empty">Este periodo no tiene metas con números.' + (S.canWrite ? " Defínelas en la pestaña Objetivos." : "") + "</p>") +
+        : '<p class="gv-empty">Este periodo no tiene metas con números.' +
+          (S.canWrite ? (S.view === "objetivos" ? " Pulsa «Editar» para definirlas." : " Defínelas en la pestaña Objetivos.") : "") + "</p>") +
         "</div>";
     }
     var title = quarter ? "Objetivos del trimestre T" + (qn + 1) : "Objetivos de " + MONTHS[m0].toLowerCase();
@@ -2074,17 +2077,15 @@
       qid = "q-" + y + "-" + (qn + 1),
       qg = S.goals.get(qid) || {},
       edit = S.goalsEdit && S.canWrite;
-    var h = notices() + monthBar();
-    h += '<div class="gbar"><p class="muted">' +
-      (edit
-        ? "Editando. Los cambios se guardan solos."
-        : (S.canWrite ? "Pulsa «Editar» para definir el tema, los objetivos y las metas." : "Solo lectura.")) +
-      "</p>" +
-      (S.canWrite
-        ? '<button class="btn' + (edit ? " primary" : "") +
-          '" type="button" data-act="goalsedit">' + (edit ? "Listo" : "Editar") + "</button>"
-        : "") +
-      "</div>";
+    // Cabecera: ‹ mes o trimestre › · Mes | Trimestre · Hoy · Editar (editar es siempre por trimestre)
+    var tools = (edit ? "" : '<div class="seg" role="group" aria-label="Periodo"><button type="button" data-act="objper" data-v="m" aria-pressed="' +
+        (S.objPer !== "q") + '">Mes</button><button type="button" data-act="objper" data-v="q" aria-pressed="' + (S.objPer === "q") +
+        '">Trimestre</button></div>');
+    var editBtn = S.canWrite
+      ? '<button class="btn' + (edit ? "" : " primary") + '" type="button" data-act="goalsedit">' + (edit ? "Listo" : "Editar") + "</button>"
+      : "";
+    var h = notices() + monthBar(tools).replace(/<\/div><\/div>$/, editBtn + "</div></div>");
+    if (edit) h += '<p class="muted gbar-t">Editando el trimestre T' + (qn + 1) + ". Los cambios se guardan solos.</p>";
     if (edit) {
       h += '<section class="card"><div class="card-h"><h3>Trimestre T' + (qn + 1) + "</h3></div>" +
         gTheme(qid, qg, edit, "Tema del trimestre") + gObjs(qid, qg, edit) +
@@ -2094,7 +2095,14 @@
       main.innerHTML = h + "</div>";
       return;
     }
-    // Lectura: primero el trimestre (tema, objetivos y metas con su avance), luego los tres meses.
+    // Lectura por mes: tema y objetivos, metas del mes y presupuesto de ads.
+    if (S.objPer !== "q") {
+      main.innerHTML = h + rsec("obj-tema", "Tema y objetivos", brief(y, S.cm)) +
+        rsec("obj-metas", "Metas", goalsSummary(y, S.cm, false, true)) +
+        adsPresupuesto(objRange());
+      return;
+    }
+    // Lectura por trimestre: el trimestre (tema, objetivos y metas con su avance), los tres meses y los ads.
     var metrics = [];
     ["ig", "tt"].forEach(function (pl) {
       metricList(qg, pl).forEach(function (m) {
@@ -2131,7 +2139,7 @@
     }
     h += '</section><div class="goal-grid">';
     for (var j = 0; j < 3; j++) h += monthCardRead(y, qn * 3 + j);
-    main.innerHTML = h + "</div>";
+    main.innerHTML = h + "</div>" + adsPresupuesto(objRange());
   }
 
   /* ---------- Pauta ---------- */
@@ -3023,39 +3031,111 @@
     });
   }
 
-  /* ---------- Rendimiento (dashboard) ---------- */
-  // Mes o trimestre del selector, con el periodo anterior para comparar. Las cifras diarias de la cuenta se
-  // piden solo al abrir esta pestaña (no entran en el refresco de 30 s) y se guardan en memoria.
+  /* ---------- Rendimiento (dashboard) ----------
+     Por periodo: los últimos 7, 30 (al entrar) o 90 días hasta hoy, o un rango personalizado; se compara con el
+     periodo del mismo largo justo antes. Las cifras diarias de la cuenta se piden solo al abrir esta pestaña (no
+     entran en el refresco de 30 s) y se guardan en memoria. Objetivos, en cambio, va por mes o trimestre (objRange). */
   function resQ() {
-    return S.resPer === "q";
+    return S.view === "objetivos" && S.objPer === "q";
+  }
+  function addD(s, n) {
+    var d = dateObj(s);
+    d.setDate(d.getDate() + n);
+    return ymd(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function diasEntre(a, b) {
+    return Math.round((dateObj(b) - dateObj(a)) / 864e5);
+  }
+  /** Periodo en curso (termina después de hoy): se compara el mismo número de días del periodo anterior. */
+  function enCurso(r) {
+    var today = todayStr();
+    r.cHasta = r.hasta;
+    r.cpHasta = r.pHasta;
+    if (today >= r.desde && today < r.hasta) {
+      var lim = addD(r.pDesde, diasEntre(r.desde, today));
+      r.cHasta = today;
+      r.cpHasta = lim < r.pHasta ? lim : r.pHasta;
+    }
+    return r;
   }
   function resRange() {
+    var today = todayStr(), desde, hasta;
+    if (S.resCustom) {
+      desde = S.resCustom.desde;
+      hasta = S.resCustom.hasta;
+    } else {
+      hasta = today;
+      desde = addD(today, -((S.resDias || 30) - 1));
+    }
+    var n = diasEntre(desde, hasta) + 1;
+    return enCurso({
+      desde: desde,
+      hasta: hasta,
+      pDesde: addD(desde, -n),
+      pHasta: addD(desde, -1),
+      etiqueta: S.resCustom ? "periodo anterior" : (S.resDias || 30) + " días anteriores",
+    });
+  }
+  /** Mes o trimestre de Objetivos (presupuesto de ads y lo que aportaron a las metas). */
+  function objRange() {
     var y = S.cy, m0, m1;
     if (resQ()) {
       m0 = Math.floor(S.cm / 3) * 3;
       m1 = m0 + 2;
     } else m0 = m1 = S.cm;
-    var n = m1 - m0 + 1, today = todayStr();
-    var r = {
+    var n = m1 - m0 + 1;
+    return enCurso({
       desde: ymd(y, m0, 1),
       hasta: ymd(y, m1, new Date(y, m1 + 1, 0).getDate()),
       pDesde: ymd(new Date(y, m0 - n, 1).getFullYear(), new Date(y, m0 - n, 1).getMonth(), 1),
       pHasta: ymd(new Date(y, m0, 0).getFullYear(), new Date(y, m0, 0).getMonth(), new Date(y, m0, 0).getDate()),
       etiqueta: resQ() ? "trimestre anterior" : "mes anterior",
-    };
-    // Periodo en curso: se compara con el mismo número de días del periodo anterior (no con el periodo entero).
-    r.cHasta = r.hasta;
-    r.cpHasta = r.pHasta;
-    if (today >= r.desde && today < r.hasta) {
-      var dias = Math.round((dateObj(today) - dateObj(r.desde)) / 864e5);
-      var pd = dateObj(r.pDesde);
-      pd.setDate(pd.getDate() + dias);
-      var lim = ymd(pd.getFullYear(), pd.getMonth(), pd.getDate());
-      r.cHasta = today;
-      r.cpHasta = lim < r.pHasta ? lim : r.pHasta;
-      // (se compara con el mismo tramo de días, pero se nombra simplemente «mes/trimestre anterior»)
+    });
+  }
+  /** «29 oct – 27 nov 2026» (largo) o «1 – 30 nov» (corto, para el botón). */
+  function rangoTxt(a, b, corto) {
+    var x = dateObj(a), y = dateObj(b), mismoA = x.getFullYear() === y.getFullYear();
+    var ini = x.getDate() + (x.getMonth() === y.getMonth() && mismoA ? "" : " " + MON3[x.getMonth()] + (mismoA ? "" : " " + x.getFullYear()));
+    return ini + " – " + y.getDate() + " " + MON3[y.getMonth()] + (corto ? "" : " " + y.getFullYear());
+  }
+  var PER_OPTS = [[7, "7 días"], [30, "30 días"], [90, "90 días"]];
+  /** Barra de Rendimiento: Filtros (red y formato) y el periodo, juntos a la izquierda; a la derecha, «Actualizar». */
+  function resBar(r) {
+    var tt = S.resRed === "tt", c = igCon(), fmt = S.resFmt || "all";
+    var n = (tt ? 1 : 0) + (fmt !== "all" ? 1 : 0), custom = !!S.resCustom;
+    var h = '<div class="toolbar rbar"><button class="btn filter-btn" type="button" data-act="resfilt" aria-expanded="' + !!S.resFiltOpen +
+      '" aria-controls="rfpanel">' + FILTER_SVG + "<span>Filtros</span>" +
+      (n ? '<span class="badge" aria-label="' + plural(n, "filtro activo", "filtros activos") + '">' + n + "</span>" : "") + "</button>" +
+      '<div class="per-wrap"><div class="seg" role="group" aria-label="Periodo">' + PER_OPTS.map(function (x) {
+        return '<button type="button" data-act="resdias" data-v="' + x[0] + '" aria-pressed="' + (!custom && (S.resDias || 30) === x[0]) + '">' +
+          x[1] + "</button>";
+      }).join("") + '<button type="button" data-act="perpop" aria-haspopup="dialog" aria-expanded="' + !!S.perOpen + '" aria-pressed="' + custom + '">' +
+      (custom ? esc(rangoTxt(r.desde, r.hasta, true)) : "Personalizado") + " ▾</button></div>" + (S.perOpen ? perPop(r) : "") + "</div>" +
+      (n ? '<button class="btn ghost sm" type="button" data-act="resclear">Limpiar</button>' : "") +
+      (c && !tt ? '<span class="res-upd"><span class="muted">' + esc(igLastTxt()) + "</span>" + igUpdButton() + "</span>" : "") + "</div>";
+    if (S.resFiltOpen) {
+      h += '<div class="fpanel" id="rfpanel"><div class="fld"><label for="rf-red">Red</label><select id="rf-red" class="in" data-rsel="red">' +
+        [["ig", "Instagram"], ["tt", "TikTok"]].map(function (x) {
+          return '<option value="' + x[0] + '"' + ((tt ? "tt" : "ig") === x[0] ? " selected" : "") + ">" + x[1] + "</option>";
+        }).join("") + "</select></div>" +
+        '<div class="fld"><label for="rf-fmt">Formato</label><select id="rf-fmt" class="in" data-rsel="fmt"><option value="all">Todos</option>' +
+        FORMAT_ORDER.map(function (k) {
+          return '<option value="' + k + '"' + (fmt === k ? " selected" : "") + ">" + FORMATS[k].label + "</option>";
+        }).join("") + '</select><span class="hint">En Contenido</span></div></div>';
     }
-    return r;
+    return h + '<p class="rper">' + esc(rangoTxt(r.desde, r.hasta)) + " · " + (tt ? "TikTok" : "Instagram") +
+      (fmt !== "all" && FORMATS[fmt] ? " · " + FORMATS[fmt].label : "") + "</p>";
+  }
+  /** Personalizado: «Este mes», «Mes pasado» o un rango desde–hasta (hasta un año). */
+  function perPop(r) {
+    var v = S.resCustom || r;
+    return '<div class="per-pop" role="dialog" aria-label="Periodo personalizado"><div class="per-q">' +
+      '<button class="btn sm" type="button" data-act="perquick" data-v="este">Este mes</button>' +
+      '<button class="btn sm" type="button" data-act="perquick" data-v="pasado">Mes pasado</button></div>' +
+      '<div class="per-r"><div class="fld"><label for="per-d">Desde</label><input id="per-d" class="in" type="date" value="' + esc(v.desde) + '"></div>' +
+      '<div class="fld"><label for="per-h">Hasta</label><input id="per-h" class="in" type="date" value="' + esc(v.hasta) + '"></div></div>' +
+      '<p class="per-err" id="perErr" hidden></p><div class="per-acts"><button class="btn sm ghost" type="button" data-act="perclose">Cancelar</button>' +
+      '<button class="btn sm primary" type="button" data-act="perapply">Aplicar</button></div></div>';
   }
   function resLoad(r) {
     var key = "ig|" + r.pDesde + "|" + r.hasta;
@@ -3272,7 +3352,7 @@
   /** «Plan contra realidad» sin métricas: planificados y publicados del periodo. */
   function planVsReal(r, withLinks) {
     var planned = allPosts().filter(function (p) {
-        return p.date && p.date >= r.desde && p.date <= r.hasta;
+        return p.date && p.date >= r.desde && p.date <= r.hasta && fmtOk(p);
       }),
       published = planned.filter(function (p) {
         return p.status === "publicado";
@@ -3614,57 +3694,70 @@
         : S.canWrite ? '<button class="btn sm ghost" type="button" data-act="impedit" data-id="' + esc(i.id) + '">Editar</button>' : "") +
       "</div></div>";
   }
-  function adsSection(r) {
-    var list = impulsosEn(r.desde, r.hasta), b = budgetIn(r.desde, r.hasta), t = adsTotals(list);
+  /** Qué consiguió cada impulso: ordenable por cada foco (o por fecha); el primero es el que más aportó. */
+  function impulsosCard(list, focos) {
+    var keys = focos.map(function (f) {
+      return [f.tipo + f.k, f.name];
+    }).concat([["fecha", "Fecha"]]);
+    var sk = S.impSort && keys.some(function (k) {
+      return k[0] === S.impSort;
+    }) ? S.impSort : keys[0][0];
+    var fsk = null;
+    focos.forEach(function (f) {
+      if (f.tipo + f.k === sk) fsk = f;
+    });
+    list = list.slice().sort(function (a, c) {
+      if (!fsk) return c.inicio.localeCompare(a.inicio);
+      var va = valImp(a, fsk), vc = valImp(c, fsk);
+      return (vc == null ? -1e12 : vc) - (va == null ? -1e12 : va);
+    });
+    var best = fsk && list.length > 1 && valImp(list[0], fsk) != null ? list[0].id : null;
+    return '<div class="card"><div class="card-h"><h3>Qué consiguió cada impulso</h3><div class="seg" role="group" aria-label="Ordenar por">' +
+      keys.map(function (x) {
+        return '<button type="button" data-act="impsort" data-v="' + esc(x[0]) + '" aria-pressed="' + (sk === x[0]) + '">' + esc(x[1]) + "</button>";
+      }).join("") + '</div></div><div class="imps">' + list.map(function (i) {
+        return impCard(i, best === i.id, focos, sk);
+      }).join("") + "</div></div>";
+  }
+  /** Rendimiento → Ads: los impulsos que empezaron en el periodo. */
+  function adsImpulsos(r) {
+    var list = impulsosEn(r.desde, r.hasta);
     var h = '<section class="rsec" id="sec-ads"><div class="rsec-h"><h2>Ads</h2>' +
       (S.canWrite ? '<button class="btn sm primary" type="button" data-act="impnew">+ Registrar impulso</button>' : "") + "</div>";
+    if (!list.length) {
+      return h + '<div class="card"><p class="gv-empty">Sin impulsos en este periodo.' +
+        (S.canWrite ? " Registra cada post impulsado con lo gastado y sus resultados." : "") +
+        ' El presupuesto del mes está en <a class="lnk" href="#objetivos">Objetivos</a>.</p></div></section>';
+    }
+    return h + impulsosCard(list, FOCOS_BASE) + "</section>";
+  }
+  /** Objetivos → Presupuesto de ads: el del mes (o los del trimestre) y lo que los ads aportaron a las metas. */
+  function adsPresupuesto(r) {
+    var list = impulsosEn(r.desde, r.hasta), b = budgetIn(r.desde, r.hasta), t = adsTotals(list);
+    var h = '<section class="rsec" id="sec-ads"><div class="rsec-h"><h2>Presupuesto de ads</h2>' +
+      (list.length ? '<a class="btn sm ghost" href="#rendimiento">Ver impulsos</a>' : "") + "</div>";
     if (!list.length && b == null && !S.budEdit) {
       return h + '<div class="card"><div class="empty" style="border:0;padding:16px 8px"><h3>' +
-        (S.canWrite ? "Registra la inversión en ads de este " + (resQ() ? "trimestre" : "mes") : "Sin inversión en ads en este periodo") +
+        (S.canWrite ? "Define la inversión en ads de este " + (resQ() ? "trimestre" : "mes") : "Sin inversión en ads en este periodo") +
         "</h3><p>" + (S.canWrite
-          ? "Define el presupuesto que aprobó el cliente y registra cada post impulsado con lo gastado y sus resultados. Planifica muestra lo que los ads aportaron a las metas del periodo."
+          ? "Define el presupuesto que aprobó el cliente; los impulsos se registran en Rendimiento. Aquí verás lo que los ads aportaron a las metas."
           : "Aquí verás lo que los posts impulsados aportaron a las metas y cuánto se invirtió.") + "</p>" +
         (S.canWrite && !resQ()
-          ? '<div class="acts"><button class="btn primary" type="button" data-act="budedit">Definir el presupuesto del mes</button><button class="btn" type="button" data-act="impnew">Registrar impulso</button></div>'
+          ? '<div class="acts"><button class="btn primary" type="button" data-act="budedit">Definir el presupuesto del mes</button></div>'
           : "") + "</div></div></section>";
     }
     var focos = adsFocos(), conMetas = focos.length;
     if (!conMetas) focos = FOCOS_BASE;
     h += budgetBlock(r);
     if (list.length) {
-      h += '<div class="card"><div class="card-h"><h3>Lo que consiguieron los ads' +
-        (conMetas ? " para las metas" : "") + '</h3><a class="btn sm ghost" href="#objetivos">' + (conMetas ? "Ver metas" : "Objetivos") + "</a></div>" +
+      h += '<div class="card"><div class="card-h"><h3>Lo que consiguieron los ads' + (conMetas ? " para las metas" : "") + "</h3></div>" +
         (conMetas ? "" : '<p class="muted small">' + (S.canWrite
-          ? "Este trimestre no tiene metas que los ads puedan mover. Define en Objetivos una meta de seguidores, alcance, media de likes, clics al enlace… y aquí se medirá contra ella."
+          ? "Este trimestre no tiene metas que los ads puedan mover. Pulsa «Editar» y define una meta de seguidores, alcance, media de likes, clics al enlace… y aquí se medirá contra ella."
           : "Resultados de los posts impulsados.") + "</p>") +
         '<div class="ftiles">' + focos.map(function (f) {
           return focoTile(f, r, list, t);
         }).join("") + "</div></div>";
-      // Impulsos: se ordenan por cada meta (o por fecha); el primero es el que más aportó a esa meta.
-      var keys = focos.map(function (f) {
-        return [f.tipo + f.k, f.name];
-      }).concat([["fecha", "Fecha"]]);
-      var sk = S.impSort && keys.some(function (k) {
-        return k[0] === S.impSort;
-      }) ? S.impSort : keys[0][0];
-      var fsk = null;
-      focos.forEach(function (f) {
-        if (f.tipo + f.k === sk) fsk = f;
-      });
-      list = list.slice().sort(function (a, c) {
-        if (!fsk) return c.inicio.localeCompare(a.inicio);
-        var va = valImp(a, fsk), vc = valImp(c, fsk);
-        return (vc == null ? -1e12 : vc) - (va == null ? -1e12 : va);
-      });
-      var best = fsk && list.length > 1 && valImp(list[0], fsk) != null ? list[0].id : null;
-      h += '<div class="card"><div class="card-h"><h3>Qué consiguió cada impulso</h3><div class="seg" role="group" aria-label="Ordenar por">' +
-        keys.map(function (x) {
-          return '<button type="button" data-act="impsort" data-v="' + esc(x[0]) + '" aria-pressed="' + (sk === x[0]) + '">' + esc(x[1]) + "</button>";
-        }).join("") + '</div></div><div class="imps">' + list.map(function (i) {
-          return impCard(i, best === i.id, focos, sk);
-        }).join("") + "</div></div>";
     }
-
     return h + "</section>";
   }
   /* Ventana para registrar o editar un impulso (un post de la parrilla impulsado en Meta). */
@@ -4167,11 +4260,6 @@
     return '<section class="rsec" id="' + id + '"><div class="rsec-h"><h2>' + title + "</h2>" + (extra || "") + "</div>" +
       inner + "</section>";
   }
-  function resNav(items) {
-    return '<nav class="secnav" aria-label="Secciones de Rendimiento">' + items.map(function (x) {
-      return '<button type="button" data-act="secgo" data-v="' + x[0] + '">' + x[1] + "</button>";
-    }).join("") + "</nav>";
-  }
   /** Media de likes por post: los posts publicados entre a y b (una media no se recorta al mismo tramo de días). */
   function likesAvg(a, b) {
     var n = 0, t = 0;
@@ -4225,10 +4313,14 @@
     if (L && L.error) h += '<p class="warn-note">' + esc(L.error) + "</p>";
     return h;
   }
+  /** Filtro «Formato» de Rendimiento (solo para Contenido). */
+  function fmtOk(p) {
+    return !S.resFmt || S.resFmt === "all" || p.format === S.resFmt;
+  }
   function contenido(r) {
     var inPer = allPosts().filter(function (p) {
       var x = igMet(p), day = postDay(p, x);
-      return hasIg(p) && day >= r.desde && day <= r.hasta;
+      return hasIg(p) && fmtOk(p) && day >= r.desde && day <= r.hasta;
     });
     var withM = inPer.filter(function (p) {
       var x = igMet(p);
@@ -4360,24 +4452,11 @@
       '</div><div class="card"><h3>Mejor día y hora para publicar</h3>' + heatmap(L && L.data && L.data.audiencia) + "</div>";
   }
   function viewRes() {
-    var h = notices() + monthBar();
-    var tt = S.resRed === "tt", c = igCon(), r = resRange(), q = resQ(), m0 = q ? Math.floor(S.cm / 3) * 3 : S.cm;
-    h += '<div class="ptools"><div class="seg" role="group" aria-label="Red">' +
-      '<button type="button" data-act="resred" data-v="ig" aria-pressed="' + !tt + '">Instagram</button>' +
-      '<button type="button" data-act="resred" data-v="tt" aria-pressed="' + tt + '">TikTok</button></div>' +
-      '<div class="seg" role="group" aria-label="Periodo">' +
-      [["m", "Mes"], ["q", "Trimestre"]].map(function (x) {
-        return '<button type="button" data-act="resper" data-v="' + x[0] + '" aria-pressed="' +
-          ((S.resPer || "m") === x[0]) + '">' + x[1] + "</button>";
-      }).join("") + "</div>" +
-      (c && !tt
-        ? '<span class="res-upd"><span class="muted">' + esc(igLastTxt()) + "</span>" + igUpdButton() + "</span>"
-        : "") + "</div>";
-    var objExtra = '<a class="btn sm" href="#objetivos">Ver objetivos</a>';
+    var tt = S.resRed === "tt", c = igCon(), r = resRange();
+    var h = notices() + resBar(r);
     if (tt) {
       main.innerHTML = h + '<div class="connect"><span class="cn-ic">' + TT_SVG + '</span><div class="cn-b"><b>Pronto: métricas de TikTok</b>' +
         "<p>Las reproducciones, likes, comentarios y compartidos de cada video, y los seguidores de la cuenta, en esta misma pestaña. Mientras tanto, las metas de TikTok se escriben a mano en Objetivos.</p></div></div>" +
-        rsec("sec-obj", "Objetivos", goalsSummary(S.cy, m0, q, true), objExtra) +
         rsec("sec-cont", "Contenido", planVsReal(r, false));
       return;
     }
@@ -4385,17 +4464,12 @@
     if (!c) {
       h += igConnectNotice("Verás el alcance, la media de likes, la evolución de seguidores, los mejores posts y la mejor hora para publicar. Las cifras se guardan desde el día en que se conecta.");
     } else if (c.estado === "error") h += igConnectNotice("");
-    var nav = [["sec-resumen", "Resumen"], ["sec-obj", "Objetivos"], ["sec-ads", "Ads"], ["sec-cont", "Contenido"]];
-    if (c) nav.push(["sec-aud", "Audiencia"]);
-    h += resNav(nav) +
-      rsec("sec-resumen", "Resumen", resumen(r, L, c)) +
-      rsec("sec-obj", "Objetivos", goalsSummary(S.cy, m0, q, true), objExtra) +
-      adsSection(r) +
+    h += rsec("sec-resumen", "Resumen", resumen(r, L, c)) +
+      adsImpulsos(r) +
       rsec("sec-cont", "Contenido", c ? contenido(r) : planVsReal(r, false));
     if (c) h += rsec("sec-aud", "Audiencia y evolución", audiencia(r, L));
     main.innerHTML = h;
   }
-
   /* ---------- Detail ---------- */
   function buildDetail(p) {
     S.detailBuilt = p.id;
@@ -5058,13 +5132,62 @@
         S.impSort = el.dataset.v;
         render();
         break;
-      case "resred":
-        S.resRed = el.dataset.v;
+      case "objper":
+        S.objPer = el.dataset.v === "q" ? "q" : "m";
         render();
         break;
-      case "resper":
-        S.resPer = el.dataset.v;
+      case "resdias":
+        S.resDias = Number(el.dataset.v) || 30;
+        S.resCustom = null;
+        S.perOpen = false;
         render();
+        break;
+      case "resfilt":
+        S.resFiltOpen = !S.resFiltOpen;
+        render();
+        break;
+      case "resclear":
+        S.resRed = "ig";
+        S.resFmt = "all";
+        render();
+        break;
+      case "perpop":
+        S.perOpen = !S.perOpen;
+        render();
+        break;
+      case "perclose":
+        S.perOpen = false;
+        render();
+        break;
+      case "perquick":
+        (function () {
+          var t = todayStr(), y = +t.slice(0, 4), m = +t.slice(5, 7) - 1;
+          if (el.dataset.v === "pasado") m--;
+          var d0 = new Date(y, m, 1), d1 = new Date(y, m + 1, 0);
+          S.resCustom = { desde: ymd(d0.getFullYear(), d0.getMonth(), 1), hasta: ymd(d1.getFullYear(), d1.getMonth(), d1.getDate()) };
+          S.perOpen = false;
+          render();
+        })();
+        break;
+      case "perapply":
+        (function () {
+          var d = ($("#per-d") || {}).value, h = ($("#per-h") || {}).value, er = $("#perErr");
+          var msg = !/^\d{4}-\d{2}-\d{2}$/.test(d || "") || !/^\d{4}-\d{2}-\d{2}$/.test(h || "")
+            ? "Elige las dos fechas."
+            : d > h
+            ? "«Desde» va antes que «Hasta»."
+            : diasEntre(d, h) > 365
+            ? "Elige un periodo de hasta un año."
+            : "";
+          if (msg) {
+            er.textContent = msg;
+            er.hidden = false;
+            return;
+          }
+          S.resCustom = { desde: d, hasta: h };
+          S.perOpen = false;
+          render();
+        })();
         break;
       case "ressort":
         S.resSort = el.dataset.v;
@@ -5726,9 +5849,20 @@
       S.f[el.dataset.fsel] = el.value;
       render();
     }
+    if (el.dataset && el.dataset.rsel) {
+      if (el.dataset.rsel === "red") S.resRed = el.value === "tt" ? "tt" : "ig";
+      else S.resFmt = el.value;
+      render();
+    }
   });
   document.addEventListener("focusout", function () {
     flushAll();
+  });
+  document.addEventListener("mousedown", function (e) {
+    if (S.perOpen && S.view === "rendimiento" && !(e.target.closest && e.target.closest(".per-wrap"))) {
+      S.perOpen = false;
+      render();
+    }
   });
   document.addEventListener("keydown", function (e) {
     var el = e.target;

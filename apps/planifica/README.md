@@ -9,7 +9,7 @@ Nació como el artefacto «Parrilla de Contenido» de claude.ai (del que tambié
 | Dirección                            | Qué es                                                                                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dualstudio.app/planifica`           | Iniciar sesión. Con una sola marca se entra directo; si no, el inicio «Todos»: Próximos y Calendario de todas tus marcas. |
-| `dualstudio.app/planifica/<cliente>` | La parrilla del cliente: Rendimiento (con Ads), Lista, Calendario, Objetivos y Pauta. Con `/preview` al final, la vista del cliente.        |
+| `dualstudio.app/planifica/<cliente>` | La parrilla de la marca: Rendimiento, Objetivos, Lista, Calendario y Pauta. Con `/preview` al final, la vista del cliente.        |
 | `dualstudio.app/planifica/configuracion` | Configuración: Mi cuenta (todos), Personas y Marcas (administradores). `/admin` lleva aquí.                   |
 
 ## Papeles
@@ -91,14 +91,16 @@ Las **historias** no tienen métricas ni impulsos: no muestran el link de Instag
 
 ## Ads
 
-En **Rendimiento → Ads** el equipo registra la inversión en publicidad de cada cliente y el cliente la ve tal cual (en dólares).
+El equipo registra la inversión en publicidad de cada marca y el cliente la ve tal cual (en dólares): los **impulsos** en **Rendimiento → Ads** (los que empezaron en el periodo) y el **presupuesto del mes** con lo que aportaron los ads a las metas en **Objetivos → Presupuesto de ads**.
 
 - **Presupuesto del mes:** el monto que aprobó el cliente, con una nota opcional. Planifica muestra lo invertido y el saldo, avisa al pasar el 80 % y marca en rojo si se pasa.
 - **Impulsos:** cada post de la parrilla que se impulsa en Meta, con fechas, monto gastado, objetivo y los resultados que da Meta (alcance, clics al enlace, mensajes, visitas al perfil, seguidores). El gasto cuenta en el mes en que empezó el impulso.
 - **Enfocado en las metas:** lo que se muestra de los ads son las métricas de los objetivos del trimestre. Si las metas son seguidores y media de likes, «Lo que consiguieron los ads» dice cuántos seguidores llegaron por los ads (y su costo) y cuánto más alta es la media de likes en los posts impulsados que en los demás; los impulsos se ordenan por cada meta. Seguidores, alcance, clics al enlace, mensajes y visitas salen de lo que reporta Meta en cada impulso; interacciones, reproducciones y las medias, de las métricas de Instagram de los posts impulsados. Sin metas así, se muestran clics al enlace, mensajes y alcance. El presupuesto va de primero; se puede expandir (por defecto está contraído) para ver la lista de posts impulsados en el periodo y cuánto se invirtió en cada uno.
 - **Por ahora es manual** (`src/ads.js`, tablas `ads_presupuestos` y `ads_impulsos`). Las columnas `origen` y `meta_ad_id` dejan listo leerlo desde Meta Ads más adelante.
 
-Rendimiento está organizado en secciones (Resumen, Objetivos, Ads, Contenido y Audiencia) con un índice arriba.
+**Rendimiento** muestra lo que pasó en un periodo: arriba, **Filtros** (red: Instagram o TikTok; formato, para Contenido) y el periodo, **7 días · 30 días · 90 días · Personalizado** (siempre arranca en 30 días hasta hoy; Personalizado trae «Este mes», «Mes pasado» o un rango desde–hasta de hasta un año). Cada cifra se compara con el periodo del mismo largo justo antes («vs. 30 días anteriores»). Secciones seguidas: Resumen, Ads (la lista de impulsos), Contenido y Audiencia.
+
+**Objetivos** muestra lo planeado y cómo va, por **Mes** (al entrar) o **Trimestre**: tema y objetivos del mes con sus posts, los círculos de las metas y el presupuesto de ads. «Editar» abre el formulario del trimestre (tema, objetivos, metas por red y los tres meses).
 
 ## Vista del cliente
 
