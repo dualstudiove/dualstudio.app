@@ -29,6 +29,8 @@ export const CAMPOS_PUBLICACION = new Set([
 export const FORMATOS = new Set(["reel", "carrusel", "foto", "historia", "diseno"]);
 export const ESTADOS = new Set(["idea", "contenido", "porproducir", "produccion", "terminado", "listo", "publicado"]);
 export const PLATAFORMAS = new Set(["ig", "tt"]);
+/** Los 8 colores que puede tener una marca (sus tonos están en public/css/tema.css: --marca-<color>). */
+export const COLORES_MARCA = ["frambuesa", "azul", "verde", "ambar", "morado", "cian", "coral", "oliva"];
 
 const MAX_PUBLICACION = 64 * 1024; // bytes del JSON de una publicación
 const MAX_OBJETIVO = 32 * 1024;

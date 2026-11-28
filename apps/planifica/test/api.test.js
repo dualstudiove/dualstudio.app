@@ -135,7 +135,7 @@ test("cada quien ve solo sus clientes", async () => {
   assert.deepEqual(s.json.clientes.map((c) => [c.slug, c.rol]), [["laboratorio-rh", "lector"]]);
 });
 
-test("agenda (y próximos): los posts de tus clientes, sin publicar y lo publicado reciente", async () => {
+test("agenda (y próximos): todos los posts de tus clientes", async () => {
   const d = (n) => sumarDias(hoy(), n);
   const crear = (quien, cli, id, datos) =>
     quien(`/${cli}/api/publicaciones`, { method: "POST", body: { id, datos: { format: "reel", platforms: ["ig"], ...datos } } });
@@ -470,4 +470,35 @@ test("páginas: inicio, admin, parrilla y direcciones reservadas", async () => {
   assert.equal(r.status, 301);
   assert.equal(r.res.headers.get("location"), "/planifica/laboratorio-rh");
   assert.equal((await anon("/api")).status, 404);
+});
+
+test("color de marca: uno de la lista; sale en la sesión y en la agenda", async () => {
+  assert.equal((await admin(`/api/admin/clientes/${ids.a}`, { method: "PUT", body: { nombre: "Laboratorio RH", color: "fucsia" } })).status, 400);
+  assert.equal((await admin(`/api/admin/clientes/${ids.a}`, { method: "PUT", body: { nombre: "Laboratorio RH", color: "verde" } })).status, 200);
+  assert.equal((await editora("/api/sesion")).json.clientes[0].color, "verde");
+  assert.equal((await editora("/api/agenda")).json.clientes[0].color, "verde");
+  await admin(`/api/admin/clientes/${ids.a}`, { method: "PUT", body: { nombre: "Laboratorio RH", color: "" } });
+  assert.equal((await editora("/api/sesion")).json.clientes[0].color, null);
+});
+
+test("foto de perfil: cada quien sube y borra la suya; la ven los que tienen sesión", async () => {
+  const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const r = await editora("/api/cuenta/foto", { method: "PUT", body: { datos: png } });
+  assert.equal(r.status, 200);
+  const s = await editora("/api/sesion");
+  assert.equal(s.json.usuario.foto_v, r.json.foto_v);
+  const f = await admin(`/api/fotos/${ids.ed}`);
+  assert.equal(f.status, 200);
+  assert.equal(f.res.headers.get("content-type"), "image/png");
+  assert.equal((await navegador()(`/api/fotos/${ids.ed}`)).status, 401);
+  assert.equal((await editora("/api/cuenta/foto", { method: "PUT", body: { datos: "data:text/html;base64,PGI+" } })).status, 400);
+  assert.equal((await editora("/api/cuenta/foto", { method: "DELETE" })).status, 200);
+  assert.equal((await editora("/api/sesion")).json.usuario.foto_v, null);
+  assert.equal((await admin(`/api/fotos/${ids.ed}`)).status, 404);
+});
+
+test("/admin lleva a la configuración", async () => {
+  const r = await admin("/admin");
+  assert.equal(r.status, 301);
+  assert.equal(r.res.headers.get("location"), "/planifica/configuracion#marcas");
 });

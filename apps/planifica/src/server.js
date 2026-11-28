@@ -1,5 +1,5 @@
 // Planifica en Cloudflare Workers, sobre crearServidor() de @dualstudio/comun.
-// Páginas: <base> (iniciar sesión / elegir cliente), <base>/admin (clientes y equipo), <base>/<cliente> (la parrilla).
+// Páginas: <base> (iniciar sesión / inicio), <base>/configuracion (Mi cuenta, Personas, Marcas), <base>/<marca> (la parrilla).
 // API: ver rutas.js (cuenta y cliente) y admin.js.
 import { crearServidor, env, Router } from "@dualstudio/comun/servidor";
 import { configurarEnv } from "./env.js";
@@ -44,7 +44,10 @@ export const { app, fetch, scheduled } = crearServidor({
   estaticos: ["/css/*", "/js/*", "/img/*", "/vendor/*", "/_ds/*"],
   paginas(app, { asset, noEncontrada }) {
     app.get("/", (c) => asset(c, "/index.html"));
-    app.get("/admin", (c) => asset(c, "/admin.html"));
+    // Configuración: Mi cuenta (todos), Personas y Marcas (administradores). /admin era la página anterior.
+    app.get("/configuracion", (c) => asset(c, "/admin.html"));
+    app.get("/admin", () =>
+      new Response(null, { status: 301, headers: { location: `${env.basePath}/configuracion#marcas` } }));
     // Vuelta de «Conectar con Meta» (ver redes/meta.js). Esta dirección se registra en la configuración de Meta.
     app.get("/redes/meta/vuelta", (c) => vueltaMeta(c));
     // La parrilla de un cliente. Quién puede verla lo decide la API (sin sesión, la página lleva a iniciar sesión).

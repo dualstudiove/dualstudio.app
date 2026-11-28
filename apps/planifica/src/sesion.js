@@ -28,9 +28,10 @@ export const RESERVADOS = new Set([
   "cuenta",
   "super",
   "redes",
+  "configuracion",
 ]);
 
-const COLS = "id, email, nombre, password_hash, es_admin, activo, sesion_version";
+const COLS = "id, email, nombre, password_hash, es_admin, activo, sesion_version, foto_v";
 
 /** El usuario de la sesión, o null. */
 export async function usuarioDe(cookies) {
@@ -59,12 +60,12 @@ export async function soloAdmin(ctx) {
 export async function clientesDe(u) {
   if (u.es_admin) {
     return (await db.all(
-      "SELECT id, slug, nombre, handle, activo FROM clientes ORDER BY activo DESC, nombre",
+      "SELECT id, slug, nombre, handle, color, activo FROM clientes ORDER BY activo DESC, nombre",
     ))
       .map((c) => ({ ...c, rol: "editor" }));
   }
   return db.all(
-    `SELECT c.id, c.slug, c.nombre, c.handle, c.activo, a.rol
+    `SELECT c.id, c.slug, c.nombre, c.handle, c.color, c.activo, a.rol
        FROM accesos a JOIN clientes c ON c.id = a.cliente_id
       WHERE a.usuario_id = ? AND c.activo = 1 ORDER BY c.nombre`,
     [u.id],

@@ -15,7 +15,6 @@ import {
   Raw,
   secretosDeRecuperacionActivos,
   str,
-  sumarDias,
   uuid,
   validarPassword,
   verifyPassword,
@@ -86,7 +85,9 @@ const usuarioPublico = (u) => ({
   email: u.email,
   nombre: u.nombre,
   es_admin: !!u.es_admin,
+  foto_v: u.foto_v || null, // con foto: /api/fotos/<id>?v=<foto_v>; sin foto, las iniciales
 });
+const MAX_FOTO = 150_000; // bytes de la foto de perfil (el navegador la deja en 256 px)
 
 /** Si dos clientes comparten algún post (dueño o colaborador de una misma publicación). */
 async function compartenPost(a, b) {
@@ -97,7 +98,6 @@ async function compartenPost(a, b) {
   ));
 }
 
-const PUBLICADOS_AGENDA = 90; // la Agenda muestra lo publicado de los últimos 90 días
 
 export function registrarRutas(r) {
   const C = { cliente: true, auth: accesoACliente };
@@ -137,6 +137,7 @@ export function registrarRutas(r) {
       slug: c.slug,
       nombre: c.nombre,
       handle: c.handle,
+      color: c.color || null,
       activo: !!c.activo,
       rol: c.rol,
     }));
@@ -192,18 +193,13 @@ export function registrarRutas(r) {
     return { mios, posts };
   }
 
-  // Agenda y Próximos del inicio: los posts de todos los clientes activos que tienes asignados. Todo lo que no está
-  // publicado (con o sin fecha) y lo publicado de los últimos PUBLICADOS_AGENDA días.
+  // Próximos y Calendario del inicio: los posts de todas las marcas activas que tienes asignadas.
   r.add("GET", "/api/agenda", { auth: conSesion }, async ({ usuario }) => {
     const dia = hoy();
-    const { mios, posts } = await postsVisibles(
-      usuario,
-      `(COALESCE(json_extract(p.datos, '$.status'), 'idea') <> 'publicado' OR json_extract(p.datos, '$.date') >= ?)`,
-      [sumarDias(dia, -PUBLICADOS_AGENDA)],
-    );
+    const { mios, posts } = await postsVisibles(usuario, "1 = 1", []);
     return {
       hoy: dia,
-      clientes: mios.map((c) => ({ slug: c.slug, nombre: c.nombre, handle: c.handle, rol: c.rol })),
+      clientes: mios.map((c) => ({ slug: c.slug, nombre: c.nombre, handle: c.handle, color: c.color || null, rol: c.rol })),
       posts: posts.map((p) => ({ ...p, cliente: p.cliente.slug })),
     };
   });
@@ -213,6 +209,33 @@ export function registrarRutas(r) {
     if (!nombre) throw new HttpError(400, "Escribe tu nombre.");
     await db.run("UPDATE usuarios SET nombre = ? WHERE id = ?", [nombre, usuario.id]);
     return { ok: true };
+  });
+
+  // Foto de perfil: cada persona sube la suya (el navegador la recorta en cuadrado y la deja en 256 px).
+  r.add("PUT", "/api/cuenta/foto", { auth: conSesion, maxBody: 300_000 }, async ({ usuario, body }) => {
+    const { tipo, bytes } = decodificar(body.datos, body.tipo);
+    if (bytes.length > MAX_FOTO) throw new HttpError(413, "La foto es demasiado grande.");
+    const v = Date.now();
+    await db.run(
+      `INSERT INTO usuarios_fotos (usuario_id, tipo, datos) VALUES (?, ?, ?)
+       ON CONFLICT (usuario_id) DO UPDATE SET tipo = excluded.tipo, datos = excluded.datos`,
+      [usuario.id, tipo, Buffer.from(bytes).toString("base64")],
+    );
+    await db.run("UPDATE usuarios SET foto_v = ? WHERE id = ?", [v, usuario.id]);
+    return { ok: true, foto_v: v };
+  });
+  r.add("DELETE", "/api/cuenta/foto", { auth: conSesion }, async ({ usuario }) => {
+    await db.run("DELETE FROM usuarios_fotos WHERE usuario_id = ?", [usuario.id]);
+    await db.run("UPDATE usuarios SET foto_v = NULL WHERE id = ?", [usuario.id]);
+    return { ok: true };
+  });
+  // Las fotos las ve cualquiera con sesión (salen en Personas, en los posts…). Cambian de dirección con ?v=.
+  r.add("GET", "/api/fotos/:id", { auth: conSesion }, async ({ params }) => {
+    const f = await db.get("SELECT tipo, datos FROM usuarios_fotos WHERE usuario_id = ?", [str(params.id, 60)]);
+    if (!f) throw new HttpError(404, "Sin foto.");
+    return new Raw(Uint8Array.from(Buffer.from(f.datos, "base64")), f.tipo, {
+      "cache-control": "private, max-age=31536000, immutable",
+    });
   });
 
   r.add(

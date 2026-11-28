@@ -74,7 +74,10 @@ CREATE TABLE IF NOT EXISTS imagenes (
 CREATE INDEX IF NOT EXISTS idx_imagenes_cliente ON imagenes (cliente_id);
 `;
 
-export const COLUMNAS = [];
+export const COLUMNAS = [
+  ["clientes", "color", "TEXT"], // color de la marca (una de COLORES_MARCA); vacío = se asigna por orden
+  ["usuarios", "foto_v", "INTEGER"], // versión de la foto de perfil (ms); vacío = sin foto (se ven las iniciales)
+];
 
 // Métricas de redes (Instagram hoy; TikTok después). Tablas añadidas después del esquema base: se crean también
 // en bases que ya existían. Ver src/redes/.
@@ -174,6 +177,15 @@ CREATE TABLE IF NOT EXISTS ads_impulsos (
 CREATE INDEX IF NOT EXISTS idx_ads_impulsos_cliente ON ads_impulsos (cliente_id, inicio);
 `;
 
+// Foto de perfil de cada persona (pequeña: el navegador la recorta y comprime antes de subirla).
+export const TABLAS_FOTOS = `
+CREATE TABLE IF NOT EXISTS usuarios_fotos (
+  usuario_id TEXT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo       TEXT NOT NULL,
+  datos      TEXT NOT NULL              -- base64
+);
+`;
+
 // Colaboraciones: otros clientes que comparten un post (el dueño es publicaciones.cliente_id).
 export const TABLAS_COLAB = `
 CREATE TABLE IF NOT EXISTS publicaciones_colab (
@@ -188,7 +200,7 @@ const esquemaCompleto = crearEsquema({
   base: ESQUEMA_BASE,
   testigo: "usuarios",
   columnas: COLUMNAS,
-  tablas: TABLAS_REDES + TABLAS_ADS + TABLAS_COLAB,
+  tablas: TABLAS_REDES + TABLAS_ADS + TABLAS_COLAB + TABLAS_FOTOS,
 });
 
 /** Huella del esquema: cambia sola cuando cambia algo de lo que se aplica (tablas, columnas, índices). */
@@ -201,7 +213,7 @@ function huella(texto) {
   return h.toString(16);
 }
 export const VERSION_ESQUEMA = huella(
-  [ESQUEMA_BASE, TABLAS_REDES, TABLAS_ADS, TABLAS_COLAB, JSON.stringify(COLUMNAS)].join("\n"),
+  [ESQUEMA_BASE, TABLAS_REDES, TABLAS_ADS, TABLAS_COLAB, TABLAS_FOTOS, JSON.stringify(COLUMNAS)].join("\n"),
 );
 
 /**

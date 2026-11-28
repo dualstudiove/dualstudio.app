@@ -12,6 +12,7 @@ import {
 import { RESERVADOS, soloAdmin } from "./sesion.js";
 import { decodificar, guardarImagen, TOPE_CLIENTE } from "./almacen.js";
 import {
+  COLORES_MARCA,
   esClaveObjetivo,
   esIdPublicacion,
   unir,
@@ -41,10 +42,17 @@ const handleDe = (v) => {
   return h ? (h.startsWith("@") ? h : `@${h}`) : null;
 };
 
+/** Color de una marca: uno de los 8 (o null, y se asigna por orden). */
+const colorDe = (v) => {
+  if (v === null || v === "" || v === undefined) return null;
+  if (!COLORES_MARCA.includes(v)) throw new HttpError(400, "Elige uno de los colores de la lista.");
+  return v;
+};
+
 export function registrarAdmin(r) {
   r.add("GET", "/api/admin/resumen", A, async () => {
     const clientes = await db.all(
-      `SELECT c.id, c.slug, c.nombre, c.handle, c.activo, c.creado_en,
+      `SELECT c.id, c.slug, c.nombre, c.handle, c.color, c.activo, c.creado_en,
               (SELECT COUNT(*) FROM publicaciones p WHERE p.cliente_id = c.id) AS publicaciones,
               (SELECT COALESCE(SUM(i.bytes), 0) FROM imagenes i WHERE i.cliente_id = c.id) AS uso_bytes,
               r.usuario AS ig_usuario, r.estado AS ig_estado, r.error AS ig_error,
@@ -53,7 +61,7 @@ export function registrarAdmin(r) {
         ORDER BY c.activo DESC, c.nombre`,
     );
     const usuarios = await db.all(
-      "SELECT id, email, nombre, es_admin, activo, creado_en FROM usuarios ORDER BY es_admin DESC, nombre, email",
+      "SELECT id, email, nombre, es_admin, activo, creado_en, foto_v FROM usuarios ORDER BY es_admin DESC, nombre, email",
     );
     const accesos = await db.all("SELECT usuario_id, cliente_id, rol FROM accesos");
     return {
@@ -93,8 +101,8 @@ export function registrarAdmin(r) {
     }
     const id = uuid();
     await db.run(
-      "INSERT INTO clientes (id, slug, nombre, handle, activo, cambiado_en, creado_en) VALUES (?,?,?,?,1,?,?)",
-      [id, slug, nombre, handleDe(body.handle), Date.now(), nowIso()],
+      "INSERT INTO clientes (id, slug, nombre, handle, color, activo, cambiado_en, creado_en) VALUES (?,?,?,?,?,1,?,?)",
+      [id, slug, nombre, handleDe(body.handle), colorDe(body.color), Date.now(), nowIso()],
     );
     return { id, slug };
   });
@@ -104,9 +112,10 @@ export function registrarAdmin(r) {
     if (!c) throw new HttpError(404, "El cliente no existe.");
     const nombre = body.nombre !== undefined ? str(body.nombre, 80) : c.nombre;
     if (!nombre) throw new HttpError(400, "Escribe el nombre del cliente.");
-    await db.run("UPDATE clientes SET nombre = ?, handle = ?, activo = ? WHERE id = ?", [
+    await db.run("UPDATE clientes SET nombre = ?, handle = ?, color = ?, activo = ? WHERE id = ?", [
       nombre,
       body.handle !== undefined ? handleDe(body.handle) : c.handle,
+      body.color !== undefined ? colorDe(body.color) : c.color,
       body.activo !== undefined ? (body.activo ? 1 : 0) : c.activo,
       c.id,
     ]);
