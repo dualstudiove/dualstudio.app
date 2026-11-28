@@ -182,6 +182,8 @@ export function registrarRutas(r) {
         id: f.id,
         cliente: c,
         colab: cx ? cx.cuentas.map((x) => x.nombre) : null,
+        // Las marcas tuyas en las que aparece (la dueña y, si es colaboración, las demás): para filtrar por marca.
+        marcas: cx ? cx.cuentas.map((x) => x.slug).filter((slug) => porSlug.has(slug)) : [c.slug],
         title: typeof d.title === "string" ? d.title.slice(0, 200) : "",
         format: d.format || "reel",
         platforms: Array.isArray(d.platforms) ? d.platforms : [],

@@ -106,6 +106,11 @@ test("Agenda y Próximos: el post compartido sale una sola vez", async () => {
   const lu = (await luis("/api/agenda")).json.posts.filter((p) => p.id === "pcolab0001");
   assert.equal(lu.length, 1);
   assert.equal(lu[0].cliente, "cuenta-c");
+  // El filtro de marca del inicio: el post sale en cada marca tuya en la que aparece, no solo en la dueña
+  assert.deepEqual(lu[0].marcas, ["cuenta-c"]);
+  const deAna = (await ana("/api/sesion")).json.clientes.map((c) => c.slug);
+  assert.deepEqual(ag[0].marcas, ["cuenta-a", "cuenta-b", "cuenta-c"].filter((s) => deAna.includes(s)));
+  assert.ok(ag[0].marcas.length > 1);
 });
 
 test("impulsos: el de otra cuenta se ve en el post marcado «ajeno»", async () => {

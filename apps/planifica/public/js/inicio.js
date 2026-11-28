@@ -209,10 +209,13 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && E.datos && !DR) cargarDatos();
 });
 
-const marcaDe = (p) => E.marcas.get(p.cliente) || { nombre: p.cliente, color: "azul", rol: "lector" };
+/** La marca con la que se muestra un post: con el filtro puesto, la filtrada (un post en colaboración aparece en
+ *  todas sus marcas); si no, su dueña. De ella salen el color, el enlace a su parrilla y si lo puedes editar. */
+const slugDe = (p) => (E.marca !== "all" && (p.marcas || []).includes(E.marca) ? E.marca : p.cliente);
+const marcaDe = (p) => E.marcas.get(slugDe(p)) || { nombre: slugDe(p), color: "azul", rol: "lector" };
 const rolDe = (slug) => (E.datos.clientes.find((c) => c.slug === slug) || {}).rol;
 const editables = () => E.datos.clientes.filter((c) => c.rol === "editor" && (E.marca === "all" || c.slug === E.marca));
-const visibles = () => E.datos.posts.filter((p) => E.marca === "all" || p.cliente === E.marca);
+const visibles = () => E.datos.posts.filter((p) => E.marca === "all" || (p.marcas || [p.cliente]).includes(E.marca));
 
 let pendientePintar = false;
 function pintar() {
@@ -261,20 +264,20 @@ function fila(p, arrastrable) {
   const st = ESTADOS[p.status] ? p.status : "idea";
   const m = marcaDe(p);
   const redes = (p.platforms || []).map((r) => REDES[r]).filter(Boolean).join(", ");
-  const estado = rolDe(p.cliente) === "editor"
+  const estado = rolDe(slugDe(p)) === "editor"
     ? `<button class="st stsel st-${st}" type="button" data-ag="stmenu" data-id="${esc(p.id)}" data-cli="${
-      esc(p.cliente)
+      esc(slugDe(p))
     }" aria-haspopup="menu" aria-expanded="false" aria-label="Estado: ${esc(ESTADOS[st])}. Cambiar estado de ${
       esc(p.title || "Sin título")
     }">${stIcono(st)}<span>${esc(ESTADOS[st])}</span>${CHEV}</button>`
     : `<span class="st st-${st}">${stIcono(st)}${esc(ESTADOS[st])}</span>`;
   return `<div class="row f-${f}${st === "publicado" ? " pub" : ""}"${
-    arrastrable && rolDe(p.cliente) === "editor" ? ` data-drag="${esc(`${p.cliente}|${p.id}`)}"` : ""
+    arrastrable && rolDe(slugDe(p)) === "editor" ? ` data-drag="${esc(`${slugDe(p)}|${p.id}`)}"` : ""
   }><div class="rd">${
     d
       ? `<b>${d.getDate()}</b><span>${DOW[dowLun(d)]}</span>${p.time ? `<span class="rt">${esc(horaCorta(p.time))}</span>` : ""}`
       : "<b>–</b><span>idea</span>"
-  }</div><div><div class="t"><a class="rlink" href="${esc(`${BASE}/${p.cliente}#post-${p.id}`)}" draggable="false">${
+  }</div><div><div class="t"><a class="rlink" href="${esc(`${BASE}/${slugDe(p)}#post-${p.id}`)}" draggable="false">${
     p.title ? esc(p.title) : "<em>Sin título</em>"
   }</a></div><div class="meta"><span class="mlabel m-${m.color}"><i class="mdot"></i>${esc(m.nombre)}</span><span class="tag">${
     fmtIcono(f)
@@ -312,8 +315,8 @@ function chip(p) {
   const m = marcaDe(p);
   const redes = (p.platforms || []).map((r) => REDES[r]).filter(Boolean).join(", ");
   return `<a class="chip mc m-${m.color} s-${st}${st === "publicado" ? " pub" : ""}" href="${
-    esc(`${BASE}/${p.cliente}#post-${p.id}`)
-  }"${rolDe(p.cliente) === "editor" ? ` data-drag="${esc(`${p.cliente}|${p.id}`)}"` : ""} draggable="false" title="${
+    esc(`${BASE}/${slugDe(p)}#post-${p.id}`)
+  }"${rolDe(slugDe(p)) === "editor" ? ` data-drag="${esc(`${slugDe(p)}|${p.id}`)}"` : ""} draggable="false" title="${
     esc(`${p.title || "Sin título"} · ${m.nombre}`)
   }"><span class="ct">${p.title ? esc(p.title) : "Sin título"}</span><span class="cm">${
     p.time ? `<em>${esc(horaCorta(p.time))}</em>` : ""
@@ -353,7 +356,7 @@ function vistaCalendario() {
   } <span>${y}</span></h2><button class="icon-btn" type="button" data-ag="next" aria-label="Mes siguiente">›</button></div><button class="btn ghost" type="button" data-ag="hoy">Hoy</button></div>` +
     barraFiltros(true) + `<div class="cal">${celdas}</div>` +
     `<section class="agenda"><h3 class="day-h">${fechaLarga(E.sel)}</h3>${
-      delDia.some((p) => rolDe(p.cliente) === "editor")
+      delDia.some((p) => rolDe(slugDe(p)) === "editor")
         ? '<p class="tip">Mantén presionada una tarjeta y arrástrala a otro día para cambiar su fecha.</p>'
         : ""
     }<div class="rows">${
@@ -413,7 +416,7 @@ function cerrarMenuEstado() {
 }
 function abrirMenuEstado(boton) {
   cerrarMenuEstado();
-  const p = E.datos.posts.find((x) => x.id === boton.dataset.id && x.cliente === boton.dataset.cli);
+  const p = E.datos.posts.find((x) => x.id === boton.dataset.id && slugDe(x) === boton.dataset.cli);
   const m = document.createElement("div");
   m.id = "agStMenu";
   m.className = "stmenu";
@@ -451,7 +454,7 @@ async function guardarCambio(p, cambios, aviso) {
   Object.assign(p, cambios);
   pintar();
   try {
-    await apiMarca(p.cliente, `/api/publicaciones/${encodeURIComponent(p.id)}`, { method: "PATCH", body: { cambios } });
+    await apiMarca(slugDe(p), `/api/publicaciones/${encodeURIComponent(p.id)}`, { method: "PATCH", body: { cambios } });
     toast(aviso, "ok");
   } catch (err) {
     Object.assign(p, antes);
@@ -502,7 +505,7 @@ document.addEventListener("click", (e) => {
     else abrirMenuEstado(b);
   } else if (t === "stpick") {
     cerrarMenuEstado();
-    const p = E.datos.posts.find((x) => x.id === b.dataset.id && x.cliente === b.dataset.cli);
+    const p = E.datos.posts.find((x) => x.id === b.dataset.id && slugDe(x) === b.dataset.cli);
     if (p && p.status !== b.dataset.v) guardarCambio(p, { status: b.dataset.v }, `${p.title || "Post"}: ${ESTADOS[b.dataset.v]}`);
   }
 }, true);
@@ -569,7 +572,7 @@ function terminarArrastre(soltar) {
     document.body.classList.remove("dragging");
     const dia = soltar ? diaEn(d.x, d.y) : null;
     const [cli, id] = d.id.split("|");
-    const p = E.datos.posts.find((x) => x.id === id && x.cliente === cli);
+    const p = E.datos.posts.find((x) => x.id === id && slugDe(x) === cli);
     if (dia?.dataset.date && p && p.date !== dia.dataset.date) {
       E.sel = dia.dataset.date;
       const f = fecha(dia.dataset.date);
