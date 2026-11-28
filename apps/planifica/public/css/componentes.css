@@ -4,6 +4,12 @@
    menú de la cuenta, los colores de marca, el selector con «Todos» y el área de configuración.
    Colores siempre con var(--…). */
 @layer app {
+  /* El espacio de la barra de scroll siempre reservado: al cambiar de pestaña (una vista corta y otra larga) la
+     página no se mueve de lado a lado. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   /* ── Botones del sistema de diseño (ventanas, confirmar, iniciar sesión) con el aspecto de los de la app ── */
   .btn.btn-primary {
     background: var(--accent);
