@@ -9,5 +9,5 @@
     "dev": "wrangler dev --port 8788",
     "deploy": "wrangler deploy"
   },
-  "devDependencies": { "wrangler": "^4.0.0" }
+  "devDependencies": { "wrangler": "^4.168.0" }
 }

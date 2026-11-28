@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@dualstudio/comun": "*",
-    "hono": "^4.6.0"
+    "hono": "^4.13.22"
   },
   "devDependencies": {
     "jspdf": "4.2.1",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.168.0"
   }
 }
