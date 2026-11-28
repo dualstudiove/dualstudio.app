@@ -140,6 +140,10 @@ const ICONOS = {
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.25"/><path d="M1.75 13c.45-2.1 2.1-3.4 4.25-3.4s3.8 1.3 4.25 3.4"/><path d="M10.5 3.4a2.25 2.25 0 0 1 0 4.2M12 9.9c1.1.5 1.9 1.5 2.25 3.1"/></svg>',
   marcas:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1.25"/><rect x="9" y="2" width="5" height="5" rx="1.25"/><rect x="2" y="9" width="5" height="5" rx="1.25"/><rect x="9" y="9" width="5" height="5" rx="1.25"/></svg>',
+  oscuro:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 9.5A5.75 5.75 0 0 1 6.5 2.5a5.75 5.75 0 1 0 7 7z"/></svg>',
+  claro:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/></svg>',
   salir:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.75H3.75a1 1 0 0 0-1 1v8.5a1 1 0 0 0 1 1H6M10.5 11l3-3-3-3M13.25 8H6"/></svg>',
 };
@@ -181,12 +185,19 @@ function abrirMenuCuenta(boton, u) {
   m.innerHTML = `<div class="av-yo">${avatar(u, "av-lg")}<div><b>${esc(u.nombre || "Sin nombre")}</b><span>${esc(u.email)}</span></div></div>` +
     it(`${BASE}/configuracion#cuenta`, "cuenta", "Mi cuenta") +
     (u.es_admin ? it(`${BASE}/configuracion#personas`, "personas", "Personas") + it(`${BASE}/configuracion#marcas`, "marcas", "Marcas") : "") +
-    `<hr><button type="button" role="menuitem" class="av-salir">${ICONOS.salir}<span>Cerrar sesión</span></button>`;
+    `<hr><button type="button" role="menuitem" class="av-tema">${ICONOS[oscuro() ? "claro" : "oscuro"]}<span>${
+      oscuro() ? "Modo claro" : "Modo oscuro"
+    }</span></button>` +
+    `<button type="button" role="menuitem" class="av-salir">${ICONOS.salir}<span>Cerrar sesión</span></button>`;
   document.body.appendChild(m);
   const r = boton.getBoundingClientRect();
   m.style.top = `${Math.round(r.bottom + 6)}px`;
   m.style.left = `${Math.round(Math.max(8, Math.min(r.right - m.offsetWidth, window.innerWidth - m.offsetWidth - 8)))}px`;
   boton.setAttribute("aria-expanded", "true");
+  m.querySelector(".av-tema").addEventListener("click", () => {
+    cambiarTema(oscuro() ? "light" : "dark");
+    cerrarMenuCuenta();
+  });
   m.querySelector(".av-salir").addEventListener("click", async () => {
     await apiRaiz("/api/logout", { method: "POST" }).catch(() => {});
     location.replace(`${BASE}/`);
@@ -196,6 +207,19 @@ function abrirMenuCuenta(boton, u) {
   document.addEventListener("mousedown", fueraDelMenu, true);
   document.addEventListener("keydown", teclaMenu, true);
   m.querySelector("[role=menuitem]")?.focus();
+}
+
+// ── Modo claro / oscuro ── (tema.js lo aplica al cargar cada página; aquí se cambia y se recuerda)
+function oscuro() {
+  const t = document.documentElement.getAttribute("data-theme");
+  if (t === "dark" || t === "light") return t === "dark";
+  return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
+function cambiarTema(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  try {
+    localStorage.setItem("pl_tema", t);
+  } catch {}
 }
 
 // ── Selector de marca ──
