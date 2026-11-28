@@ -2427,33 +2427,37 @@
   .lm > .rows {
     margin-top: 12px;
   }
-  /* Títulos de sección pequeños (lista simplificada): mes, estado o «Sin fecha», con botones de ícono */
-  .lm .sec-h,
-  .lg-h .sec-h {
+  /* Título de sección de la Lista (las dos vistas): nombre grande, info al lado, botones de ícono y línea debajo */
+  .sec-h {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 6px;
-    min-height: 30px;
+    gap: 4px 12px;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 2px solid var(--line);
   }
-  .lm .sec-h .day-h,
-  .lg-h .sec-h .day-h {
+  .sec-h h2 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.01em;
     margin: 0;
-    text-transform: none;
-    align-items: center;
   }
-  .sec-h .lm-now {
-    font-size: 11px;
-    padding: 1px 8px;
+  .sec-h h2 span {
+    color: var(--ink-3);
+    font-weight: 500;
   }
-  .ltable .lg-h td {
-    padding-top: 18px;
+  .sec-i {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-3);
   }
-  .lm .sec-h .day-h span {
-    text-transform: none;
+  .sec-i .lm-now {
+    margin-right: 2px;
   }
   .sec-acts {
+    margin-left: auto;
     display: flex;
     gap: 4px;
   }
@@ -2468,11 +2472,11 @@
     width: 15px;
     height: 15px;
   }
-  .lm:has(.sec-h) {
-    margin-top: 22px;
-  }
-  .lm:has(.sec-h) > .rows {
+  .lm > .sec-h + .rows {
     margin-top: 0;
+  }
+  .ltable .lg-h .sec-h {
+    margin-bottom: 4px;
   }
   .lm-empty {
     color: var(--ink-3);

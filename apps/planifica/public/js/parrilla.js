@@ -1089,8 +1089,9 @@
   var TARGET_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r=".6" fill="currentColor"/></svg>';
   var PLUS_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>';
   /** Título de sección pequeño (como los días de la Lista): «Noviembre 2026 · este mes · Tema · Posts 12 de 14». */
-  function secHead(main, extra, acts) {
-    return '<div class="sec-h"><h3 class="day-h">' + main + (extra ? " <span>· " + extra + "</span>" : "") + "</h3>" +
+  /** Título de sección de la Lista (mes, estado o «Sin fecha»): nombre grande, su info al lado y botones de ícono. */
+  function secHead(title, info, acts) {
+    return '<div class="sec-h"><h2>' + title + "</h2>" + (info ? '<p class="sec-i">' + info + "</p>" : "") +
       (acts ? '<span class="sec-acts">' + acts + "</span>" : "") + "</div>";
   }
   function monthHead(ym) {
@@ -1098,8 +1099,11 @@
     var g = S.goals.get("m-" + ym) || {}, st = stats(y, m), tgt = Number(g.postTarget) || 0;
     var cur = ym === todayStr().slice(0, 7);
     var first = cur ? "" : ym + "-01";
-    return secHead(MONTHS[m] + " " + y + (cur ? ' <em class="lm-now">este mes</em>' : ""),
-        [g.theme ? esc(g.theme) : "", "posts " + st.total + (tgt ? " de " + tgt : "")].filter(Boolean).join(" · "),
+    return secHead(MONTHS[m] + " <span>" + y + "</span>",
+      (cur ? '<em class="lm-now">este mes</em> ' : "") +
+        [g.theme ? esc(g.theme) : "", "posts " + st.total + (tgt ? " de " + tgt : "")].filter(Boolean).map(function (t) {
+          return "· " + t;
+        }).join(" "),
         '<button class="icon-btn sm" type="button" data-act="monthobj" data-v="' + ym + '" title="Objetivos de ' + MONTHS[m].toLowerCase() +
           '" aria-label="Objetivos de ' + MONTHS[m].toLowerCase() + '">' + TARGET_SVG + "</button>" +
           (S.canWrite ? '<button class="icon-btn sm" type="button" data-act="add" data-date="' + first + '" title="Nuevo post en ' +
@@ -1116,7 +1120,7 @@
           return (STATUS[p.status] ? p.status : "idea") === k;
         });
         if (g.length) {
-          gs.push({ id: "st-" + k, items: g, head: secHead(STATUS[k], plural(g.length, "post", "posts")) });
+          gs.push({ id: "st-" + k, items: g, head: secHead(STATUS[k], "· " + plural(g.length, "post", "posts")) });
         }
       });
       if (pubG) gs.push(pubG);
@@ -1138,7 +1142,7 @@
       return !p.date;
     });
     if (undated.length) {
-      gs.push({ id: "sinfecha", items: undated, head: secHead("Sin fecha", "banco de ideas · " + undated.length) });
+      gs.push({ id: "sinfecha", items: undated, head: secHead("Sin fecha", "· banco de ideas · " + undated.length) });
     }
     return gs;
   }
