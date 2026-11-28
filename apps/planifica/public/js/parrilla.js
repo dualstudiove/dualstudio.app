@@ -1100,10 +1100,10 @@
     var cur = ym === todayStr().slice(0, 7);
     var first = cur ? "" : ym + "-01";
     return secHead(MONTHS[m] + " <span>" + y + "</span>",
+      // Mes · este mes · tema (en el teléfono se oculta) · cantidad de posts («12/14» con meta, si no «12»)
       (cur ? '<em class="lm-now">este mes</em> ' : "") +
-        [g.theme ? esc(g.theme) : "", "posts " + st.total + (tgt ? " de " + tgt : "")].filter(Boolean).map(function (t) {
-          return "· " + t;
-        }).join(" "),
+        (g.theme ? '<span class="sec-tema">· ' + esc(g.theme) + " </span>" : "") +
+        '<span class="sec-n">· ' + st.total + (tgt ? "/" + tgt : "") + '<span class="sec-pw"> posts</span></span>',
         '<button class="icon-btn sm" type="button" data-act="monthobj" data-v="' + ym + '" title="Objetivos de ' + MONTHS[m].toLowerCase() +
           '" aria-label="Objetivos de ' + MONTHS[m].toLowerCase() + '">' + TARGET_SVG + "</button>" +
           (S.canWrite ? '<button class="icon-btn sm" type="button" data-act="add" data-date="' + first + '" title="Nuevo post en ' +

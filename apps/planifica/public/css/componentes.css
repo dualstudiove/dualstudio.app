@@ -110,6 +110,47 @@
     color: var(--danger);
   }
 
+  /* Título de sección de la Lista en el teléfono: mes, «este mes» y la cantidad de posts en una sola línea con
+     sus botones (el tema del mes se ve en Objetivos) */
+  @media (max-width: 560px) {
+    .sec-h {
+      flex-wrap: nowrap;
+      gap: 8px;
+    }
+    .sec-h h2 {
+      font-size: 20px;
+      white-space: nowrap;
+    }
+    .sec-i {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+    }
+    .sec-tema,
+    .sec-pw {
+      display: none;
+    }
+    .sec-acts {
+      flex: none;
+    }
+  }
+
+  /* Selector de marca: el nombre y la @cuenta se cortan con «…» en vez de salirse */
+  .cli-name {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .cli-l1 b {
+    min-width: 0;
+  }
+  .cli-acct {
+    max-width: 100%;
+  }
+
   /* ── Foto de perfil (o iniciales) ── */
   .av {
     --av: 32px;
