@@ -4307,8 +4307,7 @@
       kpi("❤️ Media de likes", la ? fmtNum(la.v) : "–", deltaHtml(la && la.v, laP && laP.v, r.etiqueta),
         la ? "por post, de " + plural(la.n, "post publicado", "posts publicados") : (S.canWrite ? "Pega el link de los posts publicados." : "")) +
       cifra("interacciones", "💬 Interacciones", rate != null ? "Tasa: " + fmtNum(rate, 1) + " % del alcance" : "") +
-      cifra("visitas", "👤 Visitas al perfil", t.visitas ? fmtNum(t.visitas) + " con ads" : "") +
-      cifra("clics_bio", "🔗 Clics en la bio", "Toques en los enlaces del perfil") + "</div>";
+      cifra("visitas", "👤 Visitas al perfil", t.visitas ? fmtNum(t.visitas) + " con ads" : "") + "</div>";
     if (L && L.loading) h += '<p class="muted">Cargando las cifras de la cuenta…</p>';
     if (L && L.error) h += '<p class="warn-note">' + esc(L.error) + "</p>";
     return h;

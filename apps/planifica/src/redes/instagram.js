@@ -152,11 +152,13 @@ export async function metricasDeMedio(p, token, medioId) {
 }
 
 const CUENTA_BASICA = "reach,views,accounts_engaged,total_interactions";
-const CUENTA_COMPLETA = `${CUENTA_BASICA},profile_views,profile_links_taps`;
+// (Sin clics en la bio: Meta quitó website_clicks en enero de 2025 y profile_links_taps solo cuenta los botones
+// de contacto —dirección, llamar, correo, mensaje—, no el link de la bio.)
+const CUENTA_COMPLETA = `${CUENTA_BASICA},profile_views`;
 
 /**
- * Cifras de la cuenta de un día: { alcance, reproducciones, cuentas, interacciones, visitas, clics_bio }
- * (desde/hasta en segundos). Si Meta no acepta visitas al perfil o toques en los enlaces del perfil, se piden
+ * Cifras de la cuenta de un día: { alcance, reproducciones, cuentas, interacciones, visitas }
+ * (desde/hasta en segundos). Si Meta no acepta visitas al perfil, se piden
  * solo las básicas.
  */
 export async function cifrasDelDia(p, token, cuentaId, desde, hasta) {
@@ -174,7 +176,6 @@ export async function cifrasDelDia(p, token, cuentaId, desde, hasta) {
     accounts_engaged: "cuentas",
     total_interactions: "interacciones",
     profile_views: "visitas",
-    profile_links_taps: "clics_bio",
   };
   const out = {};
   for (const d of j.data || []) {
