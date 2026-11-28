@@ -1307,7 +1307,7 @@
         '<div class="chips">' + list.map(chip).join("") + "</div></div>";
     }
     var sel = by[S.selDay] || [];
-    var h = notices() + monthBar() + brief() + filters(true);
+    var h = notices() + monthBar() + filters(true); // como el Calendario del inicio: sin la tarjeta del mes (está en Objetivos)
     if (!S.loaded.posts && !S.posts.size) h += loadingBlock();
     else {
       h += '<div class="cal">' + cells + "</div>";
